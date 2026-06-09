@@ -45,7 +45,8 @@ const fmtUpdated = (iso) => {
 let allFilms = [];        // shaped + indexed for search
 let allLists = {};        // { id: {id, name, filmGuids} }
 let filmListsMap = new Map(); // guid → Set<listId>
-let currentRoute = { view: "home" };   // { view: 'home' | 'list', listId? }
+let enriched = {};        // guid → { posterUrl, tmdbRating, ... } from /enriched.json
+let currentRoute = { view: "home" };   // { view: 'home' | 'list' | 'film' | 'wheel', ... }
 
 function shapeFilm(v) {
   return {
@@ -525,10 +526,36 @@ async function loadListsData() {
   }
 }
 
+async function loadEnrichment() {
+  try {
+    const r = await fetch("/enriched.json", { cache: "no-store" });
+    if (!r.ok) return;
+    enriched = await r.json();
+    // Merge into existing film shapes so downstream code can read
+    // posterUrl / tmdbRating directly off the film object.
+    for (const f of allFilms) {
+      const e = enriched[f.guid];
+      if (e && !e.miss) {
+        f.posterUrl = e.posterUrl;
+        f.tmdbRating = e.tmdbRating;
+        f.tmdbId = e.tmdbId;
+        f.imdbId = e.imdbId;
+        f.backdropUrl = e.backdropUrl;
+        // Prefer TMDB overview when Plex's summary is short
+        if (!f.summary || f.summary.length < 80) {
+          f.summary = e.overview || f.summary;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("enriched.json load failed:", e);
+  }
+}
+
 async function load() {
   const ok = await loadFilms();
   if (!ok) return;
-  await loadListsData();
+  await Promise.all([loadListsData(), loadEnrichment()]);
   applyRoute();
 }
 

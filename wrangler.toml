@@ -16,3 +16,15 @@ directory = "./public"
 binding = "PICKER"
 id = "a4b1048fabeb4bb79ab14a54503ca1d7"
 preview_id = "f204d026c62d4e89900d5abffdd9d753"
+
+# Service binding to the VPN manager Worker. Bypasses the
+# `*.workers.dev` routing edge-case where Worker → Worker fetches
+# on the same account return 404. Doesn't modify the VPN Worker;
+# read-only consumption.
+[[services]]
+binding = "VPN"
+service = "vpn-manager"
+
+# Enrichment job runs every 12h; no-ops when TMDB_TOKEN isn't set.
+[triggers]
+crons = ["0 */12 * * *"]
