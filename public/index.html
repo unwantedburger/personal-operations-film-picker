@@ -349,6 +349,146 @@
     .film-detail .lists-section .list-row {
       padding: 0.4rem 0;
     }
+    /* Wheel / carousel view ─────────────────────────────────────── */
+    :root {
+      --wheel-a: #2a3344;
+      --wheel-b: #303a4f;
+      --wheel-fg: #e6e9ef;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --wheel-a: #e9e9ef;
+        --wheel-b: #d8dde7;
+        --wheel-fg: #15171c;
+      }
+    }
+    .wheel-view {
+      padding: 1rem 0 2rem;
+    }
+    .wheel-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .wheel-controls .chips {
+      display: flex; gap: 0.4rem; flex-wrap: wrap;
+    }
+    .wheel-controls .chip {
+      display: inline-block;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .wheel-controls .chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .wheel-controls .mode {
+      margin-left: auto;
+      display: inline-flex;
+      gap: 0.4rem;
+    }
+    .wheel-controls .mode button {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      width: auto;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+    }
+    .wheel-controls .mode button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .wheel-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      position: relative;
+    }
+    .wheel-box .wheel {
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 1;
+    }
+    .wheel-box .wheel-rotor {
+      transform-origin: 50% 50%;
+    }
+    .spin-btn {
+      width: auto;
+      padding: 0.85rem 2.5rem;
+      background: var(--accent);
+      color: #0b0d12;
+      border: 0;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .spin-btn:disabled { opacity: 0.5; }
+    .winner {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+    }
+    .winner-card {
+      padding: 1.25rem 1.25rem;
+      border-radius: 16px;
+      background: var(--card);
+      border: 1px solid var(--accent);
+      text-align: center;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+    }
+    .winner-label {
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .winner-title { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+    .winner-sub { color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
+    .winner-link {
+      display: inline-block;
+      margin-top: 0.85rem;
+      color: var(--accent);
+      text-decoration: underline;
+      font-size: 0.95rem;
+    }
+    .confetti {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%; max-width: 600px;
+      height: 400px;
+      pointer-events: none;
+    }
+    /* Carousel grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.7rem;
+    }
+    .grid-card {
+      padding: 0.85rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: var(--fg);
+      text-decoration: none;
+      display: block;
+      min-height: 80px;
+    }
+    .grid-card-title { font-weight: 600; font-size: 0.95rem; line-height: 1.25; }
+    .grid-card-sub { color: var(--muted); font-size: 0.8rem; margin-top: 0.35rem; }
     footer {
       padding: 1.25rem 0 1.5rem;
       color: var(--muted);
@@ -383,6 +523,7 @@
     <div id="status" class="state">Loading…</div>
     <ul class="films" id="films" hidden></ul>
     <section id="film-detail" class="film-detail" hidden></section>
+    <section id="wheel-view" class="wheel-view" hidden></section>
 
     <footer>
       <span id="size"></span> · <button id="fresh" type="button" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;padding:0;">pull fresh data from solvors-mbp</button>

@@ -17,6 +17,7 @@ import {
   createList,
   indexByFilm,
 } from "./lists.js";
+import { renderWheel, renderGrid } from "./wheel.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -218,10 +219,11 @@ function renderHeaderForRoute() {
     const film = allFilms.find((f) => f.guid === currentRoute.filmGuid);
     $("page-title").textContent = film?.title || "Film";
     $("back").hidden = false;
-    // If we arrived from a list view, going back should land us
-    // there; otherwise home. History API gives a "back" that handles
-    // both naturally — but using href as a fallback for direct
-    // visits to /#/film/<guid>.
+    $("back").href = "#/";
+  } else if (currentRoute.view === "wheel") {
+    const list = currentRoute.listId !== "all" ? allLists[currentRoute.listId] : null;
+    $("page-title").textContent = list ? "Spin: " + list.name : "Spin the wheel";
+    $("back").hidden = false;
     $("back").href = "#/";
   } else {
     $("page-title").textContent = "Films";
@@ -322,33 +324,32 @@ function renderListsMenu() {
     a.name.localeCompare(b.name)
   );
   const menu = $("lists-menu");
-  if (lists.length === 0) {
-    menu.innerHTML = '<div class="empty">No lists yet.</div>';
-    return;
-  }
   const allCurrent = currentRoute.view === "home" ? " class=\"current\"" : "";
+  const wheelCurrent = currentRoute.view === "wheel" ? " class=\"current\"" : "";
+  const listsHtml = lists
+    .map((l) => {
+      const isCurrent =
+        currentRoute.view === "list" && currentRoute.listId === l.id;
+      return (
+        '<a href="#/list/' +
+        encodeURIComponent(l.id) +
+        '"' +
+        (isCurrent ? ' class="current"' : "") +
+        ">" +
+        "<span>" +
+        escapeHtml(l.name) +
+        "</span>" +
+        '<span class="count">' +
+        (l.filmGuids?.length || 0) +
+        "</span></a>"
+      );
+    })
+    .join("");
   menu.innerHTML =
     '<a href="#/"' + allCurrent + '><span>All films</span>' +
     '<span class="count">' + allFilms.length + '</span></a>' +
-    lists
-      .map((l) => {
-        const isCurrent =
-          currentRoute.view === "list" && currentRoute.listId === l.id;
-        return (
-          '<a href="#/list/' +
-          encodeURIComponent(l.id) +
-          '"' +
-          (isCurrent ? ' class="current"' : "") +
-          ">" +
-          "<span>" +
-          escapeHtml(l.name) +
-          "</span>" +
-          '<span class="count">' +
-          (l.filmGuids?.length || 0) +
-          "</span></a>"
-        );
-      })
-      .join("");
+    listsHtml +
+    '<a href="#/wheel/all/spin"' + wheelCurrent + '><span>🎲 Spin the wheel</span></a>';
 }
 
 function parseRoute() {
@@ -362,6 +363,18 @@ function parseRoute() {
   if (filmMatch) {
     return { view: "film", filmGuid: decodeURIComponent(filmMatch[1]) };
   }
+  // /wheel               → all films, default mode
+  // /wheel/<listId>      → list-scoped
+  // /wheel/<listId>/grid → grid mode
+  // /wheel/<listId>/spin → spin mode
+  const wheelMatch = hash.match(/^\/wheel(?:\/([^/]+))?(?:\/(grid|spin))?$/);
+  if (wheelMatch) {
+    return {
+      view: "wheel",
+      listId: wheelMatch[1] ? decodeURIComponent(wheelMatch[1]) : "all",
+      mode: wheelMatch[2] || "spin",
+    };
+  }
   return { view: "home" };
 }
 
@@ -371,19 +384,89 @@ function applyRoute() {
     .querySelectorAll("details[open]")
     .forEach((d) => d.removeAttribute("open"));
   renderHeaderForRoute();
-  // Show/hide list view vs detail view.
-  const isDetail = currentRoute.view === "film";
-  $("search-wrap").hidden = isDetail;
-  $("films").hidden = isDetail || allFilms.length === 0;
-  $("film-detail").hidden = !isDetail;
+  const view = currentRoute.view;
+  $("search-wrap").hidden = view !== "home" && view !== "list";
+  $("films").hidden = view !== "home" && view !== "list" || allFilms.length === 0;
+  $("film-detail").hidden = view !== "film";
+  $("wheel-view").hidden = view !== "wheel";
   $("status").hidden = true;
-  if (isDetail) {
-    renderFilmDetail();
-  } else {
-    applyFilter($("search").value);
-  }
-  // Scroll the new view into focus.
+  if (view === "film") renderFilmDetail();
+  else if (view === "wheel") renderWheelView();
+  else applyFilter($("search").value);
   window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function renderWheelView() {
+  const container = $("wheel-view");
+  const listId = currentRoute.listId;
+  const mode = currentRoute.mode;
+  // Compose film set for the chosen scope.
+  let scopeFilms;
+  if (listId === "all") {
+    scopeFilms = allFilms;
+  } else {
+    const list = allLists[listId];
+    scopeFilms = list
+      ? allFilms.filter((f) => list.filmGuids.includes(f.guid))
+      : [];
+  }
+
+  // Build the controls bar: chips for "All" + each list, mode toggle.
+  const sortedLists = Object.values(allLists).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  const chips =
+    '<a class="chip' +
+    (listId === "all" ? " active" : "") +
+    '" href="#/wheel/all/' +
+    mode +
+    '">All</a>' +
+    sortedLists
+      .map(
+        (l) =>
+          '<a class="chip' +
+          (l.id === listId ? " active" : "") +
+          '" href="#/wheel/' +
+          encodeURIComponent(l.id) +
+          "/" +
+          mode +
+          '">' +
+          escapeHtml(l.name) +
+          " <small>(" +
+          (l.filmGuids?.length || 0) +
+          ")</small></a>"
+      )
+      .join("");
+  const modeToggle =
+    '<div class="mode">' +
+    '<a class="' +
+    (mode === "spin" ? "active" : "") +
+    '" href="#/wheel/' +
+    encodeURIComponent(listId) +
+    '/spin"><button class="' +
+    (mode === "spin" ? "active" : "") +
+    '">Wheel</button></a>' +
+    '<a class="' +
+    (mode === "grid" ? "active" : "") +
+    '" href="#/wheel/' +
+    encodeURIComponent(listId) +
+    '/grid"><button class="' +
+    (mode === "grid" ? "active" : "") +
+    '">Grid</button></a>' +
+    "</div>";
+
+  container.innerHTML =
+    '<div class="wheel-controls">' +
+    '<div class="chips">' +
+    chips +
+    "</div>" +
+    modeToggle +
+    "</div>" +
+    '<div id="wheel-stage"></div>';
+
+  const stage = container.querySelector("#wheel-stage");
+  if (mode === "grid") renderGrid(stage, scopeFilms);
+  else renderWheel(stage, scopeFilms);
 }
 
 async function loadFilms() {
