@@ -46,6 +46,7 @@ const fmtUpdated = (iso) => {
 let allFilms = [];        // shaped + indexed for search
 let allLists = {};        // { id: {id, name, filmGuids} }
 let filmListsMap = new Map(); // guid → Set<listId>
+let currentRoute = { view: "home" };   // { view: 'home' | 'list', listId? }
 
 function shapeFilm(v) {
   return {
@@ -188,10 +189,88 @@ function render(films) {
     .join("");
 }
 
+function scopedFilms() {
+  if (currentRoute.view === "list") {
+    const list = allLists[currentRoute.listId];
+    if (!list) return [];
+    const members = new Set(list.filmGuids || []);
+    return allFilms.filter((f) => members.has(f.guid));
+  }
+  return allFilms;
+}
+
 function applyFilter(query) {
   const q = query.trim().toLowerCase();
-  const out = q ? allFilms.filter((f) => f._haystack.includes(q)) : allFilms;
+  const base = scopedFilms();
+  const out = q ? base.filter((f) => f._haystack.includes(q)) : base;
   render(out);
+}
+
+function renderHeaderForRoute() {
+  if (currentRoute.view === "list") {
+    const list = allLists[currentRoute.listId];
+    const name = list?.name || "Unknown list";
+    $("page-title").textContent = name;
+    $("back").hidden = false;
+  } else {
+    $("page-title").textContent = "Films";
+    $("back").hidden = true;
+  }
+  renderListsMenu();
+}
+
+function renderListsMenu() {
+  const lists = Object.values(allLists).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  const menu = $("lists-menu");
+  if (lists.length === 0) {
+    menu.innerHTML = '<div class="empty">No lists yet.</div>';
+    return;
+  }
+  const allCurrent = currentRoute.view === "home" ? " class=\"current\"" : "";
+  menu.innerHTML =
+    '<a href="#/"' + allCurrent + '><span>All films</span>' +
+    '<span class="count">' + allFilms.length + '</span></a>' +
+    lists
+      .map((l) => {
+        const isCurrent =
+          currentRoute.view === "list" && currentRoute.listId === l.id;
+        return (
+          '<a href="#/list/' +
+          encodeURIComponent(l.id) +
+          '"' +
+          (isCurrent ? ' class="current"' : "") +
+          ">" +
+          "<span>" +
+          escapeHtml(l.name) +
+          "</span>" +
+          '<span class="count">' +
+          (l.filmGuids?.length || 0) +
+          "</span></a>"
+        );
+      })
+      .join("");
+}
+
+function parseRoute() {
+  const hash = location.hash.replace(/^#/, "");
+  if (!hash || hash === "/") return { view: "home" };
+  const listMatch = hash.match(/^\/list\/(.+)$/);
+  if (listMatch) {
+    return { view: "list", listId: decodeURIComponent(listMatch[1]) };
+  }
+  return { view: "home" };
+}
+
+function applyRoute() {
+  currentRoute = parseRoute();
+  // Close any open dropdowns on navigation.
+  document
+    .querySelectorAll("details[open]")
+    .forEach((d) => d.removeAttribute("open"));
+  renderHeaderForRoute();
+  applyFilter($("search").value);
 }
 
 async function loadFilms() {
@@ -254,7 +333,7 @@ async function load() {
   const ok = await loadFilms();
   if (!ok) return;
   await loadListsData();
-  applyFilter($("search").value);
+  applyRoute();
 }
 
 async function requestRefresh() {
@@ -298,6 +377,7 @@ async function onChange(ev) {
       await removeFromList(listId, filmGuid);
     }
     await loadListsData();
+    renderListsMenu(); // counts in the header dropdown may have changed
     // Re-render only the changed row's chip + dropdown without a full
     // applyFilter (which would close other open dropdowns).
     const row = cb.closest(".film");
@@ -336,6 +416,7 @@ async function onSubmit(ev) {
     const newId = await createList(name);
     await addToList(newId, filmGuid);
     await loadListsData();
+    renderListsMenu();
     applyFilter($("search").value);  // full re-render so all dropdowns get the new list
   } catch (e) {
     alert("Couldn't create list: " + e.message);
@@ -350,15 +431,23 @@ $("refresh").addEventListener("click", load);
 $("fresh").addEventListener("click", requestRefresh);
 $("films").addEventListener("change", onChange);
 $("films").addEventListener("submit", onSubmit);
+window.addEventListener("hashchange", applyRoute);
 
-// Close any open <details> popover when the user clicks outside.
-// Native <details> doesn't do this; the absolute-positioned dropdown
-// would otherwise stay visible until the summary is clicked again.
+// Close any open <details> popover (per-row list menu OR the header
+// "Lists ▾" menu) when the user clicks outside.
 document.addEventListener("click", (e) => {
-  if (e.target.closest("details.list-menu")) return;
-  document
-    .querySelectorAll("details.list-menu[open]")
-    .forEach((d) => d.removeAttribute("open"));
+  // Per-row list menus on the films list
+  if (!e.target.closest("details.list-menu")) {
+    document
+      .querySelectorAll("details.list-menu[open]")
+      .forEach((d) => d.removeAttribute("open"));
+  }
+  // Header lists-navigation menu
+  if (!e.target.closest("details.lists-menu")) {
+    document
+      .querySelectorAll("details.lists-menu[open]")
+      .forEach((d) => d.removeAttribute("open"));
+  }
 });
 
 // `#key=…` or `?key=…` for first-time enrolment via a share URL.

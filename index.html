@@ -42,6 +42,14 @@
       padding: env(safe-area-inset-top) 1.25rem env(safe-area-inset-bottom);
     }
     header { padding: 1.25rem 0 0.5rem; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .title-group { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+    .back {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1.1rem;
+      padding: 0 0.25rem;
+    }
+    .back:hover { color: var(--fg); }
     h1 {
       font-size: 0.85rem;
       font-weight: 600;
@@ -49,6 +57,51 @@
       color: var(--muted);
       letter-spacing: 0.12em;
       text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* "Lists ▾" header dropdown to navigate between views */
+    .lists-menu { position: relative; display: inline-block; }
+    .lists-menu summary {
+      list-style: none;
+      cursor: pointer;
+      color: var(--muted);
+      user-select: none;
+    }
+    .lists-menu summary::-webkit-details-marker { display: none; }
+    .lists-menu-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.4rem;
+      min-width: 220px;
+      max-height: 60vh;
+      overflow: auto;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+      padding: 0.4rem;
+      z-index: 30;
+    }
+    .lists-menu-dropdown a {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .lists-menu-dropdown a:hover { background: var(--input-bg); }
+    .lists-menu-dropdown a.current { color: var(--accent); }
+    .lists-menu-dropdown .count { color: var(--muted); font-size: 0.8rem; }
+    .lists-menu-dropdown .empty {
+      color: var(--muted);
+      padding: 0.55rem 0.7rem;
+      font-size: 0.85rem;
     }
     .meta {
       font-size: 0.75rem;
@@ -246,9 +299,15 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Films</h1>
+      <div class="title-group">
+        <a id="back" href="#/" class="back" hidden aria-label="Back to all films">←</a>
+        <h1 id="page-title">Films</h1>
+      </div>
       <div class="meta">
-        <span id="updated"></span>
+        <details class="lists-menu">
+          <summary>Lists ▾</summary>
+          <div class="lists-menu-dropdown" id="lists-menu"></div>
+        </details>
         · <button id="refresh">refresh</button>
       </div>
     </header>
