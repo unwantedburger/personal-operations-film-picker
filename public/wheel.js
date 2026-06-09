@@ -31,66 +31,80 @@ export function renderWheel(container, films, onWin) {
   const N = films.length;
   const SLICE = 360 / N;
   const R = 100; // radius in viewBox units
+  const showPosters = N <= 20; // posters readable up to ~20 slices
 
-  // Slice paths
+  // Per-slice paths and clip-paths
+  const slicePaths = films.map((_, i) => {
+    const a1 = (i * SLICE - 90) * (Math.PI / 180);
+    const a2 = ((i + 1) * SLICE - 90) * (Math.PI / 180);
+    const x1 = R * Math.cos(a1);
+    const y1 = R * Math.sin(a1);
+    const x2 = R * Math.cos(a2);
+    const y2 = R * Math.sin(a2);
+    const largeArc = SLICE > 180 ? 1 : 0;
+    return `M 0 0 L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+  });
+
+  const clipDefs = films
+    .map((_, i) => '<clipPath id="ws' + i + '"><path d="' + slicePaths[i] + '"/></clipPath>')
+    .join("");
+
   const slices = films
-    .map((f, i) => {
-      const a1 = (i * SLICE - 90) * (Math.PI / 180);
-      const a2 = ((i + 1) * SLICE - 90) * (Math.PI / 180);
-      const x1 = R * Math.cos(a1);
-      const y1 = R * Math.sin(a1);
-      const x2 = R * Math.cos(a2);
-      const y2 = R * Math.sin(a2);
-      const largeArc = SLICE > 180 ? 1 : 0;
+    .map((_, i) => {
       const colour = i % 2 === 0 ? "var(--wheel-a)" : "var(--wheel-b)";
       return (
-        '<path d="M 0 0 L ' +
-        x1 +
-        " " +
-        y1 +
-        " A " +
-        R +
-        " " +
-        R +
-        " 0 " +
-        largeArc +
-        " 1 " +
-        x2 +
-        " " +
-        y2 +
-        ' Z" fill="' +
-        colour +
-        '" stroke="var(--bg)" stroke-width="0.4"/>'
+        '<path d="' + slicePaths[i] +
+        '" fill="' + colour + '" stroke="var(--bg)" stroke-width="0.4"/>'
       );
     })
     .join("");
+
+  // Posters as <image>s clipped to each slice. Centered on the
+  // wedge centroid, sized to roughly the inscribed rectangle so
+  // the poster reads in "contain" mode without overflowing.
+  const posters = showPosters
+    ? films
+        .map((f, i) => {
+          if (!f.posterUrl) return "";
+          const midDeg = i * SLICE + SLICE / 2;
+          const midRad = (midDeg - 90) * (Math.PI / 180);
+          // Centroid ~55% along the radius
+          const cx = R * 0.55 * Math.cos(midRad);
+          const cy = R * 0.55 * Math.sin(midRad);
+          // Max inscribed rectangle: tangential width = 2R sin(θ/2);
+          // radial height = R - small margin. Aim for ~80% of that.
+          const w = Math.min(R * 0.85, 2 * R * Math.sin((SLICE / 2) * (Math.PI / 180)) * 0.85);
+          const h = Math.min(R * 0.85, w * 1.5); // poster aspect 2:3
+          // Rotate the image so its "up" points outward radially
+          return (
+            '<image href="' + posterSize(f.posterUrl, "w342") +
+            '" x="' + (cx - w / 2) + '" y="' + (cy - h / 2) +
+            '" width="' + w + '" height="' + h +
+            '" preserveAspectRatio="xMidYMid meet"' +
+            ' transform="rotate(' + midDeg + " " + cx + " " + cy + ')"' +
+            ' clip-path="url(#ws' + i + ')" opacity="0.85"/>'
+          );
+        })
+        .join("")
+    : "";
 
   // Labels at the radial midpoint, rotated to face outward
   const labels = films
     .map((f, i) => {
       const midDeg = i * SLICE + SLICE / 2;
       const midRad = (midDeg - 90) * (Math.PI / 180);
-      const tx = (R * 0.65) * Math.cos(midRad);
-      const ty = (R * 0.65) * Math.sin(midRad);
+      const tx = (R * 0.92) * Math.cos(midRad);
+      const ty = (R * 0.92) * Math.sin(midRad);
       const maxChars = Math.max(8, Math.floor(180 / N) + 6);
       const label =
         f.title.length > maxChars ? f.title.slice(0, maxChars - 1) + "…" : f.title;
       return (
-        '<text x="' +
-        tx +
-        '" y="' +
-        ty +
+        '<text x="' + tx + '" y="' + ty +
         '" text-anchor="middle" alignment-baseline="middle" font-size="' +
         Math.max(2.5, Math.min(5, 60 / N + 1.5)) +
-        '" transform="rotate(' +
-        midDeg +
-        " " +
-        tx +
-        " " +
-        ty +
-        ')" fill="var(--wheel-fg)">' +
-        escapeHtml(label) +
-        "</text>"
+        '" transform="rotate(' + midDeg + " " + tx + " " + ty + ')" ' +
+        'fill="var(--wheel-fg)" paint-order="stroke" stroke="var(--bg)" stroke-width="0.8">' +
+        escapeHtml(label) + "</text>"
       );
     })
     .join("");
@@ -98,11 +112,10 @@ export function renderWheel(container, films, onWin) {
   container.innerHTML =
     '<div class="wheel-box">' +
     '<svg class="wheel" viewBox="-110 -110 220 220" aria-hidden="true">' +
+    "<defs>" + clipDefs + "</defs>" +
     '<g class="wheel-rotor" id="wheel-rotor">' +
-    slices +
-    labels +
+    slices + posters + labels +
     "</g>" +
-    // pointer at top
     '<polygon points="0,-108 -7,-92 7,-92" fill="var(--off)"/>' +
     '<circle cx="0" cy="0" r="8" fill="var(--bg)" stroke="var(--card-border)"/>' +
     "</svg>" +
@@ -139,8 +152,12 @@ export function renderWheel(container, films, onWin) {
         const at = (360 - (currentAngle % 360)) % 360;
         const idx = Math.floor(at / SLICE) % N;
         const winner = films[idx];
+        const posterHtml = winner.posterUrl
+          ? '<img class="winner-poster" src="' + posterSize(winner.posterUrl, "w342") + '" alt="">'
+          : "";
         winnerEl.innerHTML =
           '<div class="winner-card">' +
+          posterHtml +
           '<div class="winner-label">And the winner is</div>' +
           '<div class="winner-title">' +
           escapeHtml(winner.title) +
@@ -233,11 +250,15 @@ export function renderGrid(container, films) {
   container.innerHTML =
     '<div class="grid">' +
     films
-      .map(
-        (f) =>
+      .map((f) => {
+        const poster = f.posterUrl
+          ? '<img class="grid-poster" src="' + posterSize(f.posterUrl, "w185") + '" alt="" loading="lazy">'
+          : '<div class="grid-poster placeholder">' + escapeHtml(f.title.slice(0, 1)) + "</div>";
+        return (
           '<a class="grid-card" href="#/film/' +
           encodeURIComponent(f.guid) +
           '">' +
+          poster +
           '<div class="grid-card-title">' +
           escapeHtml(f.title) +
           "</div>" +
@@ -245,9 +266,17 @@ export function renderGrid(container, films) {
           escapeHtml([f.year, fmtDuration(f.duration)].filter(Boolean).join(" · ")) +
           "</div>" +
           "</a>"
-      )
+        );
+      })
       .join("") +
     "</div>";
+}
+
+// TMDB image URLs follow `https://image.tmdb.org/t/p/<size>/<path>`.
+// Storing only w500 in KV; resize on the fly client-side.
+function posterSize(url, size) {
+  if (!url) return url;
+  return url.replace(/\/t\/p\/[^/]+\//, "/t/p/" + size + "/");
 }
 
 function fmtDuration(ms) {

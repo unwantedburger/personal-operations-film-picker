@@ -91,6 +91,14 @@ function escapeHtml(s) {
     .replace(/'/g, "&#39;");
 }
 
+// TMDB image URLs: rewrite the size slug client-side so a single
+// stored w500 can serve thumbnails (w92), grid (w185), and detail
+// (w500/original) at the right size.
+function posterSize(url, size) {
+  if (!url) return url;
+  return url.replace(/\/t\/p\/[^/]+\//, "/t/p/" + size + "/");
+}
+
 function listBadge(guid) {
   const ids = filmListsMap.get(guid);
   if (!ids || ids.size === 0) return "";
@@ -162,8 +170,15 @@ function render(films) {
       ]
         .filter(Boolean)
         .join(" · ");
-      const ratingStr = f.rating ? Number(f.rating).toFixed(1) : "";
+      const ratingStr = f.tmdbRating
+        ? Number(f.tmdbRating).toFixed(1)
+        : f.rating
+        ? Number(f.rating).toFixed(1)
+        : "";
       const watchedClass = f.viewCount > 0 ? "dot watched" : "dot";
+      const thumb = f.posterUrl
+        ? '<img class="film-thumb" src="' + posterSize(f.posterUrl, "w92") + '" alt="" loading="lazy">'
+        : '<div class="film-thumb placeholder">' + escapeHtml(f.title.slice(0, 1)) + "</div>";
       return (
         '<li class="film" data-guid="' +
         escapeHtml(f.guid) +
@@ -173,6 +188,7 @@ function render(films) {
         '" title="' +
         (f.viewCount > 0 ? "watched" : "unwatched") +
         '"></span>' +
+        thumb +
         '<div class="film-main">' +
         '<div class="title">' +
         escapeHtml(f.title) +
@@ -260,14 +276,32 @@ function renderFilmDetail() {
         "<dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd>"
     )
     .join("");
-  const ratingPill = film.rating
-    ? '<span class="rating-pill">★ ' + Number(film.rating).toFixed(1) + "</span>"
+  const ratings = [];
+  if (film.tmdbRating) {
+    ratings.push('<span class="rating-pill">★ ' + Number(film.tmdbRating).toFixed(1) + " TMDB</span>");
+  }
+  if (film.rating && Math.abs(Number(film.rating) - Number(film.tmdbRating || 0)) > 0.3) {
+    ratings.push('<span class="rating-pill plex">★ ' + Number(film.rating).toFixed(1) + " Plex</span>");
+  }
+  if (!film.tmdbRating && film.rating) {
+    ratings.push('<span class="rating-pill">★ ' + Number(film.rating).toFixed(1) + "</span>");
+  }
+  const ratingPill = ratings.join("");
+  const imdbLink = film.imdbId
+    ? ' · <a class="ext-link" href="https://www.imdb.com/title/' + film.imdbId + '" target="_blank" rel="noopener">IMDb ↗</a>'
     : "";
   const tagline = film.tagline
     ? '<p class="tagline">' + escapeHtml(film.tagline) + "</p>"
     : "";
   const summary = film.summary
     ? '<p class="summary">' + escapeHtml(film.summary) + "</p>"
+    : "";
+  const posterImg = film.posterUrl
+    ? '<img class="detail-poster" src="' + posterSize(film.posterUrl, "w500") + '" alt="">'
+    : "";
+  const backdropBg = film.backdropUrl
+    ? '<div class="detail-backdrop" style="background-image: url(' +
+      posterSize(film.backdropUrl, "w780") + ');"></div>'
     : "";
   const listsHtml = sortedLists.length
     ? sortedLists
@@ -299,6 +333,10 @@ function renderFilmDetail() {
       '<button type="submit">+</button>' +
       "</form>";
   detail.innerHTML =
+    backdropBg +
+    '<div class="detail-head">' +
+    posterImg +
+    '<div class="detail-text">' +
     '<h1 class="title">' +
     escapeHtml(film.title) +
     "</h1>" +
@@ -307,9 +345,10 @@ function renderFilmDetail() {
       .filter(Boolean)
       .map(escapeHtml)
       .join(" · ") +
-    ratingPill +
+    " " + ratingPill + imdbLink +
     "</p>" +
     tagline +
+    "</div></div>" +
     summary +
     "<dl class=\"credits\">" +
     credits +

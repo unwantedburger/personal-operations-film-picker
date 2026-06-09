@@ -154,13 +154,28 @@
     }
     li.film {
       display: grid;
-      grid-template-columns: 0.6rem 1fr auto auto;
+      grid-template-columns: 0.6rem 2.6rem 1fr auto auto;
       gap: 0.75rem;
       align-items: center;
       padding: 0.85rem 1rem;
       background: var(--card);
       border: 1px solid var(--card-border);
       border-radius: 12px;
+    }
+    .film-thumb {
+      width: 2.6rem;
+      height: 3.9rem;
+      object-fit: cover;
+      border-radius: 4px;
+      background: var(--input-bg);
+    }
+    .film-thumb.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 1rem;
     }
     .film-main { min-width: 0; }
     .lists-chip {
@@ -287,9 +302,47 @@
     }
     .state.error { color: #ff7a59; }
     /* Film detail view ─────────────────────────────────────────── */
-    .film-detail { padding: 0.5rem 0 1rem; }
+    .film-detail {
+      padding: 0.5rem 0 1rem;
+      position: relative;
+    }
+    .detail-backdrop {
+      position: absolute;
+      inset: -0.5rem -1.25rem auto -1.25rem;
+      height: 240px;
+      background-size: cover;
+      background-position: center;
+      opacity: 0.18;
+      filter: blur(20px);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .detail-head {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 1rem;
+      align-items: start;
+      margin-bottom: 1.25rem;
+    }
+    .detail-poster {
+      width: 110px;
+      aspect-ratio: 2 / 3;
+      object-fit: cover;
+      border-radius: 8px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+      background: var(--input-bg);
+    }
+    .detail-text { min-width: 0; }
+    .ext-link {
+      color: var(--muted);
+      text-decoration: underline;
+    }
+    .rating-pill.plex {
+      background: rgba(255,122,89,0.12);
+      color: var(--off);
+    }
     .film-detail .title {
-      font-size: 1.7rem;
+      font-size: 1.55rem;
       font-weight: 700;
       line-height: 1.15;
       margin: 0 0 0.4rem;
@@ -489,6 +542,32 @@
     }
     .grid-card-title { font-weight: 600; font-size: 0.95rem; line-height: 1.25; }
     .grid-card-sub { color: var(--muted); font-size: 0.8rem; margin-top: 0.35rem; }
+    .grid-poster {
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      object-fit: cover;
+      border-radius: 6px;
+      background: var(--input-bg);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .grid-poster.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 2rem;
+    }
+    .winner-poster {
+      width: 130px;
+      aspect-ratio: 2 / 3;
+      object-fit: cover;
+      border-radius: 8px;
+      margin: 0 auto 0.85rem;
+      display: block;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+    }
     footer {
       padding: 1.25rem 0 1.5rem;
       color: var(--muted);
