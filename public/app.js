@@ -7,7 +7,8 @@
 // mutation to keep the in-memory map honest.
 
 import {
-  WORKER_BASE,
+  FILMS_URL,
+  FILMS_REFRESH_URL as REFRESH_URL,
   ensureSecret,
   forgetSecret,
   getLists,
@@ -16,9 +17,6 @@ import {
   createList,
   indexByFilm,
 } from "./lists.js";
-
-const FILMS_URL = WORKER_BASE + "/films.json";
-const REFRESH_URL = WORKER_BASE + "/library/refresh";
 
 const $ = (id) => document.getElementById(id);
 

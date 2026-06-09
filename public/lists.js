@@ -1,20 +1,15 @@
-// lists.js — client-side helpers for the lists API on the Worker.
+// lists.js — client-side helpers for the picker's own /lists API.
+// Same-origin calls; the picker's Worker handles them in src/worker.js.
 //
-// Exposes:
-//   getLists()       → fresh fetch of /lists.json
-//   addToList(...)   → POST /lists/<id>/add
-//   removeFromList   → POST /lists/<id>/remove
-//   createList(...)  → PUT /lists/<id> (idempotent for rename)
-//   deleteList(id)   → DELETE /lists/<id>
-//   ensureSecret()   → prompts + caches the SECRET in localStorage
-//                       (shared with the VPN UI under the same key)
+// The film data, by contrast, lives on the VPN manager's Worker and
+// is fetched cross-origin from FILMS_URL.
 //
 // Server is the source of truth — each mutation awaits the response
-// before updating in-memory state. Latency to Cloudflare is ~100 ms;
-// optimistic UI not worth the complexity at this scale.
+// before updating in-memory state.
 
-export const WORKER_BASE = "https://vpn-manager.staalenataas.workers.dev";
-const SECRET_KEY = "vpn-secret";
+export const FILMS_URL = "https://vpn-manager.staalenataas.workers.dev/films.json";
+export const FILMS_REFRESH_URL = "https://vpn-manager.staalenataas.workers.dev/library/refresh";
+const SECRET_KEY = "picker-secret";
 
 export function ensureSecret() {
   let s = localStorage.getItem(SECRET_KEY);
@@ -32,7 +27,7 @@ export function forgetSecret() {
 }
 
 export async function getLists() {
-  const r = await fetch(WORKER_BASE + "/lists.json", { cache: "no-store" });
+  const r = await fetch("/lists.json", { cache: "no-store" });
   if (!r.ok) throw new Error("lists.json: HTTP " + r.status);
   return await r.json();
 }
@@ -40,7 +35,7 @@ export async function getLists() {
 async function authedFetch(path, opts = {}) {
   const secret = ensureSecret();
   if (!secret) throw new Error("no key");
-  const url = new URL(WORKER_BASE + path);
+  const url = new URL(path, location.origin);
   url.searchParams.set("secret", secret);
   const r = await fetch(url.toString(), {
     method: opts.method || "POST",
