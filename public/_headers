@@ -1,0 +1,18 @@
+# Cloudflare Pages-style headers. Tell the browser to ALWAYS
+# revalidate JS/CSS modules via ETag instead of trusting its
+# disk cache for hours. This prevents the kind of half-cached
+# state that bit Staale on 2026-06-09 — a stale app.js that
+# imported a symbol the freshly-deployed lists.js no longer
+# exported, leaving the page silently empty.
+
+/*.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
