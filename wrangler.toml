@@ -1,0 +1,13 @@
+# Cloudflare deploys this as a static-assets-only Worker via Workers
+# Builds (CF merged Pages into Workers). No JS Worker script — just
+# the contents of this directory served as static assets. Same end
+# result as old-school Pages, same auto-deploy on push.
+#
+# Build command in CF dashboard: (empty)
+# Deploy command in CF dashboard: npx wrangler deploy
+
+name = "personal-operations-film-picker"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./"
