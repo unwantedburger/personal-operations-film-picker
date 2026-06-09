@@ -56,10 +56,13 @@ function shapeFilm(v) {
     viewCount: v.viewCount || 0,
     duration: v.duration,
     summary: v.summary,
+    tagline: v.tagline,
     contentRating: v.contentRating,
     directors: (v.Director || []).map((d) => d.tag),
     genres: (v.Genre || []).map((g) => g.tag),
     actors: (v.Role || []).slice(0, 5).map((r) => r.tag),
+    countries: (v.Country || []).map((c) => c.tag),
+    studio: v.studio,
   };
 }
 
@@ -210,11 +213,108 @@ function renderHeaderForRoute() {
     const name = list?.name || "Unknown list";
     $("page-title").textContent = name;
     $("back").hidden = false;
+    $("back").href = "#/";
+  } else if (currentRoute.view === "film") {
+    const film = allFilms.find((f) => f.guid === currentRoute.filmGuid);
+    $("page-title").textContent = film?.title || "Film";
+    $("back").hidden = false;
+    // If we arrived from a list view, going back should land us
+    // there; otherwise home. History API gives a "back" that handles
+    // both naturally — but using href as a fallback for direct
+    // visits to /#/film/<guid>.
+    $("back").href = "#/";
   } else {
     $("page-title").textContent = "Films";
     $("back").hidden = true;
   }
   renderListsMenu();
+}
+
+function renderFilmDetail() {
+  const detail = $("film-detail");
+  const film = allFilms.find((f) => f.guid === currentRoute.filmGuid);
+  if (!film) {
+    detail.innerHTML =
+      '<p class="state error">Film not found in the current library dump.</p>';
+    return;
+  }
+  const sortedLists = Object.values(allLists).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  const memberOf = filmListsMap.get(film.guid) || new Set();
+  const credits = [
+    ["Directed by", film.directors.join(", ")],
+    ["Starring", film.actors.join(", ")],
+    ["Genre", film.genres.join(", ")],
+    ["Rated", film.contentRating],
+    ["Runtime", fmtDuration(film.duration)],
+    ["Year", film.year],
+    ["Watched", film.viewCount > 0 ? "Yes" : "No"],
+  ]
+    .filter(([, v]) => v)
+    .map(
+      ([k, v]) =>
+        "<dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd>"
+    )
+    .join("");
+  const ratingPill = film.rating
+    ? '<span class="rating-pill">★ ' + Number(film.rating).toFixed(1) + "</span>"
+    : "";
+  const tagline = film.tagline
+    ? '<p class="tagline">' + escapeHtml(film.tagline) + "</p>"
+    : "";
+  const summary = film.summary
+    ? '<p class="summary">' + escapeHtml(film.summary) + "</p>"
+    : "";
+  const listsHtml = sortedLists.length
+    ? sortedLists
+        .map(
+          (l) =>
+            '<label class="list-row">' +
+            '<input type="checkbox" data-guid="' +
+            escapeHtml(film.guid) +
+            '" data-list="' +
+            escapeHtml(l.id) +
+            '"' +
+            (memberOf.has(l.id) ? " checked" : "") +
+            ">" +
+            "<span>" +
+            escapeHtml(l.name) +
+            "</span></label>"
+        )
+        .join("") +
+      '<form class="new-list-form" data-guid="' +
+      escapeHtml(film.guid) +
+      '">' +
+      '<input type="text" placeholder="New list…" autocapitalize="none" autocomplete="off">' +
+      '<button type="submit">+</button>' +
+      "</form>"
+    : '<form class="new-list-form" data-guid="' +
+      escapeHtml(film.guid) +
+      '">' +
+      '<input type="text" placeholder="Create your first list…" autocapitalize="none" autocomplete="off">' +
+      '<button type="submit">+</button>' +
+      "</form>";
+  detail.innerHTML =
+    '<h1 class="title">' +
+    escapeHtml(film.title) +
+    "</h1>" +
+    '<p class="meta-row">' +
+    [film.year, film.directors[0]]
+      .filter(Boolean)
+      .map(escapeHtml)
+      .join(" · ") +
+    ratingPill +
+    "</p>" +
+    tagline +
+    summary +
+    "<dl class=\"credits\">" +
+    credits +
+    "</dl>" +
+    '<section class="lists-section">' +
+    "<h2>Lists</h2>" +
+    listsHtml +
+    "</section>";
 }
 
 function renderListsMenu() {
@@ -258,17 +358,32 @@ function parseRoute() {
   if (listMatch) {
     return { view: "list", listId: decodeURIComponent(listMatch[1]) };
   }
+  const filmMatch = hash.match(/^\/film\/(.+)$/);
+  if (filmMatch) {
+    return { view: "film", filmGuid: decodeURIComponent(filmMatch[1]) };
+  }
   return { view: "home" };
 }
 
 function applyRoute() {
   currentRoute = parseRoute();
-  // Close any open dropdowns on navigation.
   document
     .querySelectorAll("details[open]")
     .forEach((d) => d.removeAttribute("open"));
   renderHeaderForRoute();
-  applyFilter($("search").value);
+  // Show/hide list view vs detail view.
+  const isDetail = currentRoute.view === "film";
+  $("search-wrap").hidden = isDetail;
+  $("films").hidden = isDetail || allFilms.length === 0;
+  $("film-detail").hidden = !isDetail;
+  $("status").hidden = true;
+  if (isDetail) {
+    renderFilmDetail();
+  } else {
+    applyFilter($("search").value);
+  }
+  // Scroll the new view into focus.
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 async function loadFilms() {
@@ -415,7 +530,11 @@ async function onSubmit(ev) {
     await addToList(newId, filmGuid);
     await loadListsData();
     renderListsMenu();
-    applyFilter($("search").value);  // full re-render so all dropdowns get the new list
+    if (currentRoute.view === "film") {
+      renderFilmDetail();  // detail view needs the new list visible
+    } else {
+      applyFilter($("search").value);  // re-render all rows so dropdowns show the new list
+    }
   } catch (e) {
     alert("Couldn't create list: " + e.message);
     input.disabled = false;
@@ -427,8 +546,35 @@ async function onSubmit(ev) {
 $("search").addEventListener("input", (e) => applyFilter(e.target.value));
 $("refresh").addEventListener("click", load);
 $("fresh").addEventListener("click", requestRefresh);
+
+// Back arrow uses history.back() so navigating from list → detail
+// returns to the list. Falls back to the anchor's href for direct
+// visits where there's no in-app history.
+$("back").addEventListener("click", (e) => {
+  if (history.length > 1) {
+    e.preventDefault();
+    history.back();
+  }
+});
 $("films").addEventListener("change", onChange);
 $("films").addEventListener("submit", onSubmit);
+
+// Tapping a row body navigates to the film detail. Clicks that
+// land inside the list-menu (the per-row + dropdown) are
+// handled by their own controls and shouldn't navigate.
+$("films").addEventListener("click", (e) => {
+  if (e.target.closest(".list-menu")) return;
+  const row = e.target.closest("li.film");
+  if (!row) return;
+  const guid = row.dataset.guid;
+  if (guid) location.hash = "#/film/" + encodeURIComponent(guid);
+});
+
+// The detail view also has list checkboxes + a new-list form;
+// reuse the same handlers.
+$("film-detail").addEventListener("change", onChange);
+$("film-detail").addEventListener("submit", onSubmit);
+
 window.addEventListener("hashchange", applyRoute);
 
 // Close any open <details> popover (per-row list menu OR the header

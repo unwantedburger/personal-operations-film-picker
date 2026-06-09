@@ -286,6 +286,69 @@
       color: var(--muted);
     }
     .state.error { color: #ff7a59; }
+    /* Film detail view ─────────────────────────────────────────── */
+    .film-detail { padding: 0.5rem 0 1rem; }
+    .film-detail .title {
+      font-size: 1.7rem;
+      font-weight: 700;
+      line-height: 1.15;
+      margin: 0 0 0.4rem;
+    }
+    .film-detail .meta-row {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0 0 1rem;
+      line-height: 1.5;
+    }
+    .film-detail .meta-row .rating-pill {
+      display: inline-block;
+      padding: 0 0.5rem;
+      margin-left: 0.4rem;
+      border-radius: 999px;
+      background: rgba(102, 224, 122, 0.13);
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .film-detail .tagline {
+      font-style: italic;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+    .film-detail .summary {
+      line-height: 1.5;
+      margin: 0 0 1.5rem;
+    }
+    .film-detail .credits {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.4rem 1rem;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .film-detail .credits dt {
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      align-self: baseline;
+      padding-top: 0.1rem;
+    }
+    .film-detail .credits dd { margin: 0; }
+    .film-detail .lists-section {
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
+    }
+    .film-detail .lists-section h2 {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .film-detail .lists-section .list-row {
+      padding: 0.4rem 0;
+    }
     footer {
       padding: 1.25rem 0 1.5rem;
       color: var(--muted);
@@ -312,13 +375,14 @@
       </div>
     </header>
 
-    <div class="search-wrap">
+    <div class="search-wrap" id="search-wrap">
       <input id="search" type="search" placeholder="Search title, director, genre…" autocomplete="off" spellcheck="false">
       <div class="count" id="count"></div>
     </div>
 
     <div id="status" class="state">Loading…</div>
     <ul class="films" id="films" hidden></ul>
+    <section id="film-detail" class="film-detail" hidden></section>
 
     <footer>
       <span id="size"></span> · <button id="fresh" type="button" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;padding:0;">pull fresh data from solvors-mbp</button>
