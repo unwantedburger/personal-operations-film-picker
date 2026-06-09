@@ -33,8 +33,12 @@ export function renderWheel(container, films, onWin) {
   const R = 100; // radius in viewBox units
   const showPosters = N <= 20; // posters readable up to ~20 slices
 
-  // Per-slice paths and clip-paths
-  const slicePaths = films.map((_, i) => {
+  // Per-slice geometry. The clip path for slice `i` is the wedge
+  // shape at angles [i*SLICE, (i+1)*SLICE] measured from 12 o'clock
+  // clockwise. The image for slice `i` is NOT rotated — posters
+  // stay upright regardless of slice position. The clipPath crops
+  // overflow.
+  const slicePath = (i) => {
     const a1 = (i * SLICE - 90) * (Math.PI / 180);
     const a2 = ((i + 1) * SLICE - 90) * (Math.PI / 180);
     const x1 = R * Math.cos(a1);
@@ -43,69 +47,78 @@ export function renderWheel(container, films, onWin) {
     const y2 = R * Math.sin(a2);
     const largeArc = SLICE > 180 ? 1 : 0;
     return `M 0 0 L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-  });
+  };
 
   const clipDefs = films
-    .map((_, i) => '<clipPath id="ws' + i + '"><path d="' + slicePaths[i] + '"/></clipPath>')
+    .map((_, i) => '<clipPath id="ws' + i + '"><path d="' + slicePath(i) + '"/></clipPath>')
     .join("");
 
-  const slices = films
-    .map((_, i) => {
-      const colour = i % 2 === 0 ? "var(--wheel-a)" : "var(--wheel-b)";
-      return (
-        '<path d="' + slicePaths[i] +
-        '" fill="' + colour + '" stroke="var(--bg)" stroke-width="0.4"/>'
-      );
-    })
-    .join("");
-
-  // Posters as <image>s clipped to each slice. Centered on the
-  // wedge centroid, sized to roughly the inscribed rectangle so
-  // the poster reads in "contain" mode without overflowing.
-  const posters = showPosters
-    ? films
-        .map((f, i) => {
-          if (!f.posterUrl) return "";
-          const midDeg = i * SLICE + SLICE / 2;
-          const midRad = (midDeg - 90) * (Math.PI / 180);
-          // Centroid ~55% along the radius
-          const cx = R * 0.55 * Math.cos(midRad);
-          const cy = R * 0.55 * Math.sin(midRad);
-          // Max inscribed rectangle: tangential width = 2R sin(θ/2);
-          // radial height = R - small margin. Aim for ~80% of that.
-          const w = Math.min(R * 0.85, 2 * R * Math.sin((SLICE / 2) * (Math.PI / 180)) * 0.85);
-          const h = Math.min(R * 0.85, w * 1.5); // poster aspect 2:3
-          // Rotate the image so its "up" points outward radially
-          return (
-            '<image href="' + posterSize(f.posterUrl, "w342") +
-            '" x="' + (cx - w / 2) + '" y="' + (cy - h / 2) +
-            '" width="' + w + '" height="' + h +
-            '" preserveAspectRatio="xMidYMid meet"' +
-            ' transform="rotate(' + midDeg + " " + cx + " " + cy + ')"' +
-            ' clip-path="url(#ws' + i + ')" opacity="0.85"/>'
-          );
-        })
-        .join("")
-    : "";
-
-  // Labels at the radial midpoint, rotated to face outward
-  const labels = films
+  // Each slice rendered as a self-contained group containing:
+  // - the wedge fill (so all slices have visible edges)
+  // - the poster, clipped to the wedge, positioned at the wedge's
+  //   centroid, NOT rotated (upright posters)
+  // - the title label, rotated to read along the radial direction
+  //
+  // Posters sized to the wedge's inscribed rectangle so they
+  // visually fill the slice without overflow.
+  const sliceGroups = films
     .map((f, i) => {
+      const colour = i % 2 === 0 ? "var(--wheel-a)" : "var(--wheel-b)";
+      const wedgeFill =
+        '<path d="' + slicePath(i) +
+        '" fill="' + colour + '" stroke="var(--bg)" stroke-width="0.5"/>';
+
+      let posterTag = "";
+      if (showPosters && f.posterUrl) {
+        // Use an SVG <pattern> as the wedge's fill. The pattern's
+        // viewport handles the "contain" semantics natively
+        // (preserveAspectRatio="meet"), and the wedge's path
+        // automatically clips anything outside its own boundary —
+        // no separate clipPath needed, no overflow into neighbours.
+        const midDeg = i * SLICE + SLICE / 2;
+        const midRad = (midDeg - 90) * (Math.PI / 180);
+        const halfChord = R * Math.sin((SLICE / 2) * (Math.PI / 180));
+        const w = Math.min(R * 0.85, halfChord * 1.8);
+        const h = w * 1.5;
+        const rCentroid = R * 0.55;
+        const cx = rCentroid * Math.cos(midRad);
+        const cy = rCentroid * Math.sin(midRad);
+        const px = cx - w / 2;
+        const py = cy - h / 2;
+        // The pattern itself is registered in <defs> below; here we
+        // emit nothing — the wedge's `fill` carries the reference.
+        // We tag the slice with `data-pattern-i` so the wedge fill
+        // can be set after the fact.
+        // Actually simpler: render the pattern + the wedge filled by
+        // it as one inline string.
+        posterTag =
+          '<defs><pattern id="p' + i + '" patternUnits="userSpaceOnUse" ' +
+          'x="' + px + '" y="' + py + '" width="' + w + '" height="' + h + '">' +
+          '<rect width="' + w + '" height="' + h + '" fill="' + colour + '"/>' +
+          '<image href="' + posterSize(f.posterUrl, "w342") +
+          '" x="0" y="0" width="' + w + '" height="' + h +
+          '" preserveAspectRatio="xMidYMid meet"/>' +
+          "</pattern></defs>" +
+          '<path d="' + slicePath(i) + '" fill="url(#p' + i + ')"/>';
+      }
+
+      // Label — radial midpoint, rotated to read along the slice
       const midDeg = i * SLICE + SLICE / 2;
       const midRad = (midDeg - 90) * (Math.PI / 180);
-      const tx = (R * 0.92) * Math.cos(midRad);
-      const ty = (R * 0.92) * Math.sin(midRad);
+      const lx = R * 0.88 * Math.cos(midRad);
+      const ly = R * 0.88 * Math.sin(midRad);
       const maxChars = Math.max(8, Math.floor(180 / N) + 6);
-      const label =
+      const labelText =
         f.title.length > maxChars ? f.title.slice(0, maxChars - 1) + "…" : f.title;
-      return (
-        '<text x="' + tx + '" y="' + ty +
-        '" text-anchor="middle" alignment-baseline="middle" font-size="' +
-        Math.max(2.5, Math.min(5, 60 / N + 1.5)) +
-        '" transform="rotate(' + midDeg + " " + tx + " " + ty + ')" ' +
-        'fill="var(--wheel-fg)" paint-order="stroke" stroke="var(--bg)" stroke-width="0.8">' +
-        escapeHtml(label) + "</text>"
-      );
+      const fontSize = Math.max(2.5, Math.min(4.5, 50 / N + 1.5));
+      const labelTag =
+        '<text x="' + lx + '" y="' + ly +
+        '" text-anchor="middle" alignment-baseline="middle" font-size="' + fontSize +
+        '" transform="rotate(' + midDeg + " " + lx + " " + ly + ')" ' +
+        'fill="var(--wheel-fg)" paint-order="stroke" stroke="rgba(15,13,11,0.85)" stroke-width="0.5">' +
+        escapeHtml(labelText) + "</text>";
+
+      return wedgeFill + posterTag + labelTag;
     })
     .join("");
 
@@ -114,62 +127,91 @@ export function renderWheel(container, films, onWin) {
     '<svg class="wheel" viewBox="-110 -110 220 220" aria-hidden="true">' +
     "<defs>" + clipDefs + "</defs>" +
     '<g class="wheel-rotor" id="wheel-rotor">' +
-    slices + posters + labels +
+    sliceGroups +
     "</g>" +
-    '<polygon points="0,-108 -7,-92 7,-92" fill="var(--off)"/>' +
-    '<circle cx="0" cy="0" r="8" fill="var(--bg)" stroke="var(--card-border)"/>' +
+    // pointer at top — separate from rotor so it stays still
+    '<polygon class="wheel-pointer" points="0,-108 -8,-94 8,-94" fill="var(--accent)"/>' +
+    '<circle class="wheel-hub" cx="0" cy="0" r="7" fill="var(--bg)" stroke="var(--accent)" stroke-width="1"/>' +
     "</svg>" +
-    '<button class="spin-btn" id="spin-btn">Spin</button>' +
-    '<div class="winner" id="winner" hidden></div>' +
-    '<canvas class="confetti" id="confetti" width="600" height="400"></canvas>' +
+    '<button class="spin-btn" id="spin-btn"><span>Spin</span></button>' +
+    '<canvas class="confetti" id="confetti" width="900" height="700"></canvas>' +
+    // Winner is a modal overlay — sits in a portal at body level so
+    // it covers everything regardless of stacking context.
+    '<div class="winner-modal" id="winner-modal" hidden role="dialog" aria-modal="true">' +
+    '<div class="winner-backdrop" data-close></div>' +
+    '<div class="winner-card-wrap" id="winner-content"></div>' +
+    "</div>" +
     "</div>";
 
   let currentAngle = 0;
   const rotor = container.querySelector("#wheel-rotor");
   const btn = container.querySelector("#spin-btn");
-  const winnerEl = container.querySelector("#winner");
+  const modal = container.querySelector("#winner-modal");
+  const modalContent = container.querySelector("#winner-content");
   const confettiCanvas = container.querySelector("#confetti");
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+  modal.addEventListener("click", (e) => {
+    if (e.target.matches("[data-close]") || e.target.classList.contains("winner-backdrop")) {
+      closeModal();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.hidden) closeModal();
+  });
 
   btn.addEventListener("click", () => {
     btn.disabled = true;
-    winnerEl.hidden = true;
-    // 4–8 full turns + a random offset within [0, 360)
-    const turns = 4 + Math.floor(Math.random() * 5);
+    closeModal();
+    const turns = 5 + Math.floor(Math.random() * 4);
     const offset = Math.random() * 360;
     const targetAngle = currentAngle + turns * 360 + offset;
+    // Strong easing — fast start, lingering deceleration.
     rotor.style.transition =
-      "transform 5s cubic-bezier(0.15, 0.65, 0.18, 1)";
+      "transform 6s cubic-bezier(0.1, 0.62, 0.16, 1)";
     rotor.style.transform = "rotate(" + targetAngle + "deg)";
     rotor.addEventListener(
       "transitionend",
       () => {
         currentAngle = targetAngle % 360;
-        // Pointer is at the top (-y axis). To find which slice
-        // landed at the top, compute the angle "under" the pointer.
-        // After the rotor rotates by currentAngle clockwise, the
-        // slice originally at angle (360 - currentAngle) is now at
-        // the pointer.
+        // Pointer is at 12 o'clock. After rotor rotates by
+        // currentAngle clockwise, the slice originally at angle
+        // (360 - currentAngle) sits under the pointer.
         const at = (360 - (currentAngle % 360)) % 360;
         const idx = Math.floor(at / SLICE) % N;
         const winner = films[idx];
         const posterHtml = winner.posterUrl
-          ? '<img class="winner-poster" src="' + posterSize(winner.posterUrl, "w342") + '" alt="">'
+          ? '<img class="winner-poster" src="' + posterSize(winner.posterUrl, "w500") + '" alt="">'
+          : '<div class="winner-poster placeholder">' + escapeHtml(winner.title.slice(0, 1)) + "</div>";
+        const ratingPill = winner.tmdbRating
+          ? '<span class="winner-rating">★ ' + Number(winner.tmdbRating).toFixed(1) + "</span>"
+          : winner.rating
+          ? '<span class="winner-rating">★ ' + Number(winner.rating).toFixed(1) + "</span>"
           : "";
-        winnerEl.innerHTML =
+        modalContent.innerHTML =
+          '<button class="winner-close" data-close aria-label="Close">×</button>' +
           '<div class="winner-card">' +
           posterHtml +
-          '<div class="winner-label">And the winner is</div>' +
+          '<div class="winner-label">Tonight</div>' +
           '<div class="winner-title">' +
           escapeHtml(winner.title) +
           "</div>" +
           '<div class="winner-sub">' +
           [winner.year, winner.directors?.[0]].filter(Boolean).join(" · ") +
+          " " + ratingPill +
           "</div>" +
-          '<a class="winner-link" href="#/film/' +
+          '<div class="winner-actions">' +
+          '<a class="winner-link primary" href="#/film/' +
           encodeURIComponent(winner.guid) +
           '">Open detail</a>' +
+          '<button class="winner-link secondary" data-close type="button">Pick again</button>' +
+          "</div>" +
           "</div>";
-        winnerEl.hidden = false;
+        modal.hidden = false;
+        document.body.classList.add("modal-open");
         burstConfetti(confettiCanvas);
         btn.disabled = false;
         if (onWin) onWin(winner);

@@ -239,7 +239,7 @@ function renderHeaderForRoute() {
     $("back").href = "#/";
   } else if (currentRoute.view === "wheel") {
     const list = currentRoute.listId !== "all" ? allLists[currentRoute.listId] : null;
-    $("page-title").textContent = list ? "Spin: " + list.name : "Spin the wheel";
+    $("page-title").textContent = list ? list.name : "Tonight's pick";
     $("back").hidden = false;
     $("back").href = "#/";
   } else {
