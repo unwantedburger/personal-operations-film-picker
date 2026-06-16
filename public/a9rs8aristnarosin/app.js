@@ -9,8 +9,7 @@
 import {
   FILMS_URL,
   FILMS_REFRESH_URL as REFRESH_URL,
-  ensureSecret,
-  forgetSecret,
+  pickerSecret,
   getLists,
   addToList,
   removeFromList,
@@ -599,19 +598,17 @@ async function load() {
 }
 
 async function requestRefresh() {
-  const secret = ensureSecret();
-  if (!secret) return;
+  const secret = pickerSecret();
+  if (!secret) {
+    alert("Picker secret missing from page — reload and try again.");
+    return;
+  }
   $("fresh").disabled = true;
   try {
     const r = await fetch(
       REFRESH_URL + "?secret=" + encodeURIComponent(secret),
       { method: "POST" }
     );
-    if (r.status === 403) {
-      forgetSecret();
-      alert("Wrong key — re-tap and re-enter.");
-      return;
-    }
     if (!r.ok) throw new Error("HTTP " + r.status);
     alert(
       "Refresh requested. solvors-mbp picks it up within ~60 s; tap refresh to reload the page after."
@@ -743,15 +740,5 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// `#key=…` or `?key=…` for first-time enrolment via a share URL.
-(function consumeKey() {
-  const fromHash = new URLSearchParams(location.hash.slice(1)).get("key");
-  const fromQuery = new URLSearchParams(location.search).get("key");
-  const k = fromHash || fromQuery;
-  if (k) {
-    localStorage.setItem("vpn-secret", k.trim());
-    history.replaceState(null, "", location.pathname);
-  }
-})();
 
 load();

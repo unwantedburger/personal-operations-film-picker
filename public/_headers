@@ -4,15 +4,18 @@
 # state that bit Staale on 2026-06-09 — a stale app.js that
 # imported a symbol the freshly-deployed lists.js no longer
 # exported, leaving the page silently empty.
+#
+# The SPA itself now lives under /a9rs8aristnarosin/; bare /
+# is a blank page served by the Worker (cache-control set there).
 
-/*.js
+/a9rs8aristnarosin/*.js
   Cache-Control: public, max-age=0, must-revalidate
 
-/*.css
+/a9rs8aristnarosin/*.css
   Cache-Control: public, max-age=0, must-revalidate
 
-/index.html
+/a9rs8aristnarosin/index.html
   Cache-Control: public, max-age=0, must-revalidate
 
-/
+/a9rs8aristnarosin/
   Cache-Control: public, max-age=0, must-revalidate

@@ -12,10 +12,12 @@ renders it as a searchable list.
 - Live search filter (title, year, director, genre, top-5 cast).
 - Watched / unwatched indicator (green dot vs grey).
 - "Pull fresh data" link triggers the Mac to re-dump from Plex via
-  the Worker's `/library/refresh` endpoint. Needs the same `SECRET`
-  used by the VPN manager (stored once in `localStorage` as
-  `vpn-secret`). The list itself is public-read; only the refresh
-  requires the key.
+  the Worker's `/library/refresh` endpoint. Uses the same `SECRET`
+  as the VPN manager; the picker Worker injects it into the SPA
+  shell so no prompt or `localStorage` is needed. The list itself
+  is public-read; only the refresh requires the key.
+- The SPA lives at `/a9rs8aristnarosin/`. The bare workers.dev URL
+  returns a blank page so the picker isn't trivially discoverable.
 
 ## What's not here (yet)
 

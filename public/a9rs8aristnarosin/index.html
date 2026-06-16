@@ -806,6 +806,11 @@
   </style>
 </head>
 <body>
+  <!-- Server-side-injected. The Worker replaces "__PICKER_SECRET__"
+       with the real env.SECRET on every shell fetch, so the SPA
+       never has to prompt the user for a key. Keep the sentinel
+       string exactly like this — Worker matches on it literally. -->
+  <script>window.__PICKER_SECRET = "__PICKER_SECRET__";</script>
   <div class="wrap">
     <header>
       <div class="title-group">

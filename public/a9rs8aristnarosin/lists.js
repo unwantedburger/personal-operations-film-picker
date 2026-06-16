@@ -9,21 +9,12 @@
 
 export const FILMS_URL = "https://vpn-manager.staalenataas.workers.dev/films.json";
 export const FILMS_REFRESH_URL = "https://vpn-manager.staalenataas.workers.dev/library/refresh";
-const SECRET_KEY = "picker-secret";
 
-export function ensureSecret() {
-  let s = localStorage.getItem(SECRET_KEY);
-  if (s) return s;
-  const entered = prompt("Enter the VPN manager key:");
-  if (entered) {
-    s = entered.trim();
-    localStorage.setItem(SECRET_KEY, s);
-  }
-  return s;
-}
-
-export function forgetSecret() {
-  localStorage.removeItem(SECRET_KEY);
+// Server-side-injected by the picker Worker into index.html as
+// `window.__PICKER_SECRET = "..."`. No prompt, no localStorage —
+// the page only loads at all if the visitor knew the obscure path.
+export function pickerSecret() {
+  return (typeof window !== "undefined" && window.__PICKER_SECRET) || "";
 }
 
 export async function getLists() {
@@ -33,18 +24,14 @@ export async function getLists() {
 }
 
 async function authedFetch(path, opts = {}) {
-  const secret = ensureSecret();
-  if (!secret) throw new Error("no key");
+  const secret = pickerSecret();
+  if (!secret) throw new Error("picker secret missing from page");
   const url = new URL(path, location.origin);
   url.searchParams.set("secret", secret);
   const r = await fetch(url.toString(), {
     method: opts.method || "POST",
     ...opts,
   });
-  if (r.status === 403) {
-    forgetSecret();
-    throw new Error("forbidden — key removed, try again");
-  }
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
 }

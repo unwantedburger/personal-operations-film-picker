@@ -6,6 +6,34 @@ can re-litigate intentionally rather than by accident.
 
 ---
 
+## 2026-06-16 — V0.8 server-side secret, obscure path
+
+The SPA moved from `/` to `/a9rs8aristnarosin/`. The bare
+workers.dev URL now returns a blank page so the picker isn't
+trivially discoverable. The Worker injects the API secret into
+the served HTML at request time, removing the
+prompt-and-`localStorage` enrolment dance (which iOS Safari kept
+stripping from the URL anyway — see V0.6).
+
+Wrangler `[assets]` runs the Worker first (`run_worker_first =
+true`); static files are pulled through `env.ASSETS.fetch()`. The
+HTML response goes through `serveAppShell()` which substitutes
+the `"__PICKER_SECRET__"` sentinel for `env.SECRET`. Direct
+`/a9rs8aristnarosin/index.html` and `/a9rs8aristnarosin/` both go
+through the same shell handler so the secret is always present.
+
+Threat-model note (unchanged from V0.6 of the VPN manager):
+anyone who fetches the app shell sees the secret in the HTML.
+Worst case a stranger flips the VPN off for 3 h or mutates the
+lists. The obscure path is the only barrier; security through
+obscurity is acknowledged and intentional — this is family-only
+infrastructure on a fresh subdomain with no inbound links.
+
+Client side: `lists.js` exports `pickerSecret()` (reads
+`window.__PICKER_SECRET`) instead of `ensureSecret()`/
+`forgetSecret()`. `app.js` drops the `#key=` / `?key=` consumer
+IIFE. `_headers` rewritten to match new asset paths.
+
 ## 2026-06-09 — V0 through V0.7, the whole picker in one session
 
 Built and deployed seven phases (A → G) plus a restructure and a

@@ -1,6 +1,8 @@
-# Picker Worker config. Cloudflare serves /public assets first;
-# anything else falls through to src/worker.js which handles the
-# /lists API.
+# Picker Worker config. The Worker handles every request
+# (`run_worker_first = true`); static assets under public/ are
+# fetched via the ASSETS binding from inside the Worker. This lets
+# us serve a blank page at "/" and inject the SECRET into the app's
+# index.html at the obscure path before returning it.
 #
 # PICKER KV namespace is the picker's own storage; separate from
 # the VPN manager's namespace so the two services don't share state.
@@ -11,6 +13,8 @@ compatibility_date = "2026-01-01"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
 
 [[kv_namespaces]]
 binding = "PICKER"
