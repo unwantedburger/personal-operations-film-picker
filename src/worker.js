@@ -96,7 +96,9 @@ async function serveAppShell(request, env) {
   if (!assetResp.ok) return assetResp;
   let body = await assetResp.text();
   // Sentinel must match the placeholder in index.html exactly.
-  body = body.replace(
+  // `replaceAll` because the sentinel appears in both a comment and
+  // the script tag — `replace` with a string only hits the first.
+  body = body.replaceAll(
     "\"__PICKER_SECRET__\"",
     JSON.stringify(env.SECRET ?? ""),
   );
