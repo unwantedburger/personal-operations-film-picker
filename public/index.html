@@ -422,6 +422,9 @@
       align-items: start;
       margin-bottom: 1.25rem;
     }
+    /* No poster → text spans the full width instead of being trapped
+       in the empty 110px poster column. */
+    .detail-head.no-poster { grid-template-columns: 1fr; }
     .detail-poster {
       width: 110px;
       aspect-ratio: 2 / 3;
@@ -448,6 +451,11 @@
       letter-spacing: -0.025em;
       margin: 0 0 0.55rem;
       color: var(--fg);
+      /* Hero title wraps — override the list h1's nowrap/ellipsis so
+         longer titles aren't truncated to "Hot F…". */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
     .film-detail .meta-row {
       color: var(--muted);

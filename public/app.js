@@ -333,7 +333,7 @@ function renderFilmDetail() {
       "</form>";
   detail.innerHTML =
     backdropBg +
-    '<div class="detail-head">' +
+    '<div class="detail-head' + (posterImg ? "" : " no-poster") + '">' +
     posterImg +
     '<div class="detail-text">' +
     '<h1 class="title">' +
