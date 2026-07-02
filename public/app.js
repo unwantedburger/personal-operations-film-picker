@@ -362,33 +362,40 @@ function renderListsMenu() {
   const lists = Object.values(allLists).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const menu = $("lists-menu");
-  const allCurrent = currentRoute.view === "home" ? " class=\"current\"" : "";
-  const wheelCurrent = currentRoute.view === "wheel" ? " class=\"current\"" : "";
-  const listsHtml = lists
-    .map((l) => {
-      const isCurrent =
-        currentRoute.view === "list" && currentRoute.listId === l.id;
-      return (
-        '<a href="#/list/' +
-        encodeURIComponent(l.id) +
-        '"' +
-        (isCurrent ? ' class="current"' : "") +
-        ">" +
-        "<span>" +
-        escapeHtml(l.name) +
-        "</span>" +
-        '<span class="count">' +
-        (l.filmGuids?.length || 0) +
-        "</span></a>"
-      );
-    })
-    .join("");
-  menu.innerHTML =
-    '<a href="#/"' + allCurrent + '><span>All films</span>' +
-    '<span class="count">' + allFilms.length + '</span></a>' +
-    listsHtml +
-    '<a href="#/wheel/all/spin"' + wheelCurrent + '><span>🎲 Spin the wheel</span></a>';
+  // Top-nav "Lists" dropdown holds only the user's lists — "All films"
+  // and "Lottery" are their own always-visible tabs in the nav.
+  const menu = $("nav-lists-menu");
+  if (menu) {
+    menu.innerHTML = lists.length
+      ? lists
+          .map((l) => {
+            const isCurrent =
+              currentRoute.view === "list" && currentRoute.listId === l.id;
+            return (
+              '<a href="#/list/' +
+              encodeURIComponent(l.id) +
+              '"' +
+              (isCurrent ? ' class="current"' : "") +
+              "><span>" +
+              escapeHtml(l.name) +
+              "</span>" +
+              '<span class="count">' +
+              (l.filmGuids?.length || 0) +
+              "</span></a>"
+            );
+          })
+          .join("")
+      : '<div class="empty">No lists yet</div>';
+  }
+  // Drive the active-tab highlight from the current route.
+  const navAll = $("nav-all");
+  const navLottery = $("nav-lottery");
+  const navLists = $("nav-lists");
+  if (navAll) navAll.classList.toggle("active", currentRoute.view === "home");
+  if (navLottery)
+    navLottery.classList.toggle("active", currentRoute.view === "wheel");
+  if (navLists)
+    navLists.classList.toggle("active", currentRoute.view === "list");
 }
 
 function parseRoute() {
@@ -732,10 +739,10 @@ document.addEventListener("click", (e) => {
       .querySelectorAll("details.list-menu[open]")
       .forEach((d) => d.removeAttribute("open"));
   }
-  // Header lists-navigation menu
-  if (!e.target.closest("details.lists-menu")) {
+  // Top-nav Lists dropdown
+  if (!e.target.closest("details.topnav-lists")) {
     document
-      .querySelectorAll("details.lists-menu[open]")
+      .querySelectorAll("details.topnav-lists[open]")
       .forEach((d) => d.removeAttribute("open"));
   }
 });

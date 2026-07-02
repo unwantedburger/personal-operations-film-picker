@@ -808,6 +808,46 @@
       text-align: center;
       letter-spacing: 0.04em;
     }
+    /* Primary top nav — All films / Lists / Lottery. Always visible,
+       big tap targets, active tab in marquee amber. */
+    .topnav {
+      display: flex;
+      gap: 0.4rem;
+      margin: 0 0 0.9rem;
+    }
+    .topnav-item {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.65rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg-soft);
+      font-size: 0.92rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color .15s ease, color .15s ease, background .15s ease;
+    }
+    .topnav-item:hover { border-color: var(--accent); color: var(--fg); }
+    .topnav-item.active,
+    .topnav-lists.active > summary.topnav-item,
+    .topnav-lists[open] > summary.topnav-item {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .topnav-lists { position: relative; flex: 1; }
+    .topnav-lists > summary { list-style: none; width: 100%; }
+    .topnav-lists > summary::-webkit-details-marker { display: none; }
+    /* Full-width dropdown under the Lists tab (overrides the header
+       menu's right-anchored variant). */
+    .topnav-lists-menu { left: 0; right: auto; z-index: 25; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -825,13 +865,18 @@
       </div>
       <div class="meta">
         <span id="updated"></span>
-        <details class="lists-menu">
-          <summary>Lists ▾</summary>
-          <div class="lists-menu-dropdown" id="lists-menu"></div>
-        </details>
         · <button id="refresh">refresh</button>
       </div>
     </header>
+
+    <nav class="topnav" aria-label="Primary">
+      <a id="nav-all" href="#/" class="topnav-item">All films</a>
+      <details class="topnav-lists" id="nav-lists">
+        <summary class="topnav-item">Lists ▾</summary>
+        <div class="lists-menu-dropdown topnav-lists-menu" id="nav-lists-menu"></div>
+      </details>
+      <a id="nav-lottery" href="#/wheel/all/spin" class="topnav-item">Lottery</a>
+    </nav>
 
     <div class="search-wrap" id="search-wrap">
       <input id="search" type="search" placeholder="Search title, director, genre…" autocomplete="off" spellcheck="false">
