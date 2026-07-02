@@ -114,6 +114,19 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* Brand wordmark = home button */
+    .brand {
+      font-family: "Fraunces", serif;
+      font-variation-settings: "opsz" 72;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--fg);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      transition: color .2s ease;
+    }
+    .brand:hover { color: var(--accent); }
     /* "Lists ▾" header dropdown to navigate between views */
     .lists-menu { position: relative; display: inline-block; }
     .lists-menu summary {
@@ -864,6 +877,137 @@
     /* Full-width dropdown under the Lists tab (overrides the header
        menu's right-anchored variant). */
     .topnav-lists-menu { left: 0; right: auto; z-index: 25; }
+    .new-list-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-top: 0.3rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .new-list-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+    /* List view "pick from this list" bar (replaces search inside a list) */
+    .list-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.25rem 0 1rem;
+    }
+    .list-bar-name { min-width: 0; color: var(--fg-soft); font-size: 0.95rem; }
+    .list-bar-name strong { color: var(--fg); font-weight: 600; }
+    .list-bar-name small { color: var(--muted); }
+    .pick-from-list {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #0F0D0B;
+      font-weight: 600;
+      font-size: 0.92rem;
+      text-decoration: none;
+      white-space: nowrap;
+      box-shadow: 0 10px 24px -10px rgba(244,161,0,0.6);
+    }
+    .pick-from-list:active { transform: translateY(1px); }
+    /* Per-row remove button (shown instead of the + dropdown in list view) */
+    .row-remove {
+      width: 2.2rem;
+      height: 2.2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: color .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .row-remove:hover { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+    /* Generic app modal (New list) */
+    .app-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      z-index: 2000;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .app-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,13,11,0.78);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .app-modal-card {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg-2) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      animation: zoomIn 0.25s cubic-bezier(0.2,0.95,0.3,1.1);
+    }
+    .app-modal-card h2 { margin: 0 0 1rem; font-size: 1.25rem; }
+    .app-modal-card input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--input-bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none;
+    }
+    .app-modal-card input:focus { border-color: var(--accent); }
+    .app-modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
+    .app-btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .app-btn.primary { background: var(--accent); color: #0F0D0B; }
+    .app-btn.secondary { background: transparent; color: var(--fg-soft); border-color: var(--border); }
+    /* Floating scroll-to-top */
+    .scroll-top {
+      position: fixed;
+      right: 1rem;
+      bottom: calc(1rem + env(safe-area-inset-bottom));
+      width: 2.9rem;
+      height: 2.9rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--fg);
+      font-size: 1.3rem;
+      cursor: pointer;
+      z-index: 1500;
+      box-shadow: 0 10px 24px -8px rgba(0,0,0,0.6);
+      opacity: 0.92;
+    }
+    .scroll-top:hover { border-color: var(--accent); color: var(--accent); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -876,8 +1020,11 @@
   <div class="wrap">
     <header>
       <div class="title-group">
-        <a id="back" href="#/" class="back" hidden aria-label="Back to all films">←</a>
-        <h1 id="page-title">Films</h1>
+        <a id="back" href="#/" class="back" hidden aria-label="Back">←</a>
+        <!-- Brand wordmark doubles as the home button — always "Films",
+             always returns to all films. Current list/film name shows
+             in-content, not here. -->
+        <a id="page-title" href="#/" class="brand">Films</a>
       </div>
       <div class="meta">
         <span id="updated"></span>
@@ -886,18 +1033,21 @@
     </header>
 
     <nav class="topnav" aria-label="Primary">
-      <a id="nav-all" href="#/" class="topnav-item">All films</a>
       <details class="topnav-lists" id="nav-lists">
         <summary class="topnav-item">Lists ▾</summary>
         <div class="lists-menu-dropdown topnav-lists-menu" id="nav-lists-menu"></div>
       </details>
-      <a id="nav-lottery" href="#/wheel/all/spin" class="topnav-item">Pick film</a>
+      <a id="nav-lottery" href="#/wheel/all/spin" class="topnav-item">✨ Pick film</a>
     </nav>
 
     <div class="search-wrap" id="search-wrap">
       <input id="search" type="search" placeholder="Search title, director, genre…" autocomplete="off" spellcheck="false">
       <div class="count" id="count"></div>
     </div>
+
+    <!-- List view replaces the search field with this bar: list name +
+         "Pick from this list". Populated + toggled in app.js. -->
+    <div id="list-bar" class="list-bar" hidden></div>
 
     <div id="status" class="state">Loading…</div>
     <ul class="films" id="films" hidden></ul>
@@ -908,6 +1058,21 @@
       <span id="size"></span> · <button id="fresh" type="button" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;padding:0;">pull fresh data from solvors-mbp</button>
     </footer>
   </div>
+
+  <!-- New-list modal (opened from the Lists dropdown's New-list button) -->
+  <div class="app-modal" id="list-modal" hidden role="dialog" aria-modal="true" aria-label="Create a new list">
+    <div class="app-modal-backdrop" data-close></div>
+    <form class="app-modal-card" id="list-modal-form">
+      <h2>New list</h2>
+      <input type="text" id="list-modal-input" placeholder="List name" autocapitalize="words" autocomplete="off" spellcheck="false">
+      <div class="app-modal-actions">
+        <button type="button" class="app-btn secondary" data-close>Cancel</button>
+        <button type="submit" class="app-btn primary">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <button id="scroll-top" class="scroll-top" hidden aria-label="Scroll to top">↑</button>
 
   <script type="module" src="./app.js"></script>
 </body>

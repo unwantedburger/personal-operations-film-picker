@@ -99,12 +99,15 @@ function posterSize(url, size) {
 }
 
 function listBadge(guid) {
-  const ids = filmListsMap.get(guid);
-  if (!ids || ids.size === 0) return "";
-  const names = [...ids]
-    .map((id) => allLists[id]?.name || id)
-    .slice(0, 2);
-  const extra = ids.size > 2 ? " +" + (ids.size - 2) : "";
+  const idSet = filmListsMap.get(guid);
+  if (!idSet || idSet.size === 0) return "";
+  let ids = [...idSet];
+  // Inside a list, membership is implied — don't repeat that list as a chip.
+  if (currentRoute.view === "list")
+    ids = ids.filter((id) => id !== currentRoute.listId);
+  if (ids.length === 0) return "";
+  const names = ids.map((id) => allLists[id]?.name || id).slice(0, 2);
+  const extra = ids.length > 2 ? " +" + (ids.length - 2) : "";
   return (
     '<span class="lists-chip">' +
     names.map(escapeHtml).join(" · ") +
@@ -148,6 +151,21 @@ function listDropdown(guid) {
     "</div>" +
     "</details>"
   );
+}
+
+// Per-row trailing control: inside a list it's a remove-from-list
+// button; everywhere else it's the +add lists dropdown.
+function rowAction(guid) {
+  if (currentRoute.view === "list") {
+    return (
+      '<button class="row-remove" data-remove-guid="' +
+      escapeHtml(guid) +
+      '" data-remove-list="' +
+      escapeHtml(currentRoute.listId) +
+      '" aria-label="Remove from this list" title="Remove from this list">✕</button>'
+    );
+  }
+  return listDropdown(guid);
 }
 
 function render(films) {
@@ -200,7 +218,7 @@ function render(films) {
         '<div class="rating">' +
         ratingStr +
         "</div>" +
-        listDropdown(f.guid) +
+        rowAction(f.guid) +
         "</li>"
       );
     })
@@ -225,27 +243,34 @@ function applyFilter(query) {
 }
 
 function renderHeaderForRoute() {
-  if (currentRoute.view === "list") {
-    const list = allLists[currentRoute.listId];
-    const name = list?.name || "Unknown list";
-    $("page-title").textContent = name;
-    $("back").hidden = false;
-    $("back").href = "#/";
-  } else if (currentRoute.view === "film") {
-    const film = allFilms.find((f) => f.guid === currentRoute.filmGuid);
-    $("page-title").textContent = film?.title || "Film";
-    $("back").hidden = false;
-    $("back").href = "#/";
-  } else if (currentRoute.view === "wheel") {
-    const list = currentRoute.listId !== "all" ? allLists[currentRoute.listId] : null;
-    $("page-title").textContent = list ? list.name : "Tonight's pick";
-    $("back").hidden = false;
-    $("back").href = "#/";
-  } else {
-    $("page-title").textContent = "Films";
-    $("back").hidden = true;
-  }
+  // The "Films" brand is fixed and always links home; only the back
+  // arrow reflects depth. Current list/film name is shown in-content.
+  $("back").hidden = currentRoute.view === "home";
   renderListsMenu();
+}
+
+// List view swaps the search field for a bar with the list name + a
+// "Pick from this list" shortcut into the wheel.
+function renderListBar() {
+  const bar = $("list-bar");
+  if (!bar) return;
+  const list = allLists[currentRoute.listId];
+  if (!list) {
+    bar.innerHTML = "";
+    return;
+  }
+  const n = list.filmGuids?.length || 0;
+  bar.innerHTML =
+    '<div class="list-bar-name"><strong>' +
+    escapeHtml(list.name) +
+    "</strong> <small>· " +
+    n +
+    " film" +
+    (n === 1 ? "" : "s") +
+    "</small></div>" +
+    '<a class="pick-from-list" href="#/wheel/' +
+    encodeURIComponent(list.id) +
+    '/spin">✨ Pick from this list</a>';
 }
 
 function renderFilmDetail() {
@@ -275,17 +300,12 @@ function renderFilmDetail() {
         "<dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd>"
     )
     .join("");
-  const ratings = [];
-  if (film.tmdbRating) {
-    ratings.push('<span class="rating-pill">★ ' + Number(film.tmdbRating).toFixed(1) + " TMDB</span>");
-  }
-  if (film.rating && Math.abs(Number(film.rating) - Number(film.tmdbRating || 0)) > 0.3) {
-    ratings.push('<span class="rating-pill plex">★ ' + Number(film.rating).toFixed(1) + " Plex</span>");
-  }
-  if (!film.tmdbRating && film.rating) {
-    ratings.push('<span class="rating-pill">★ ' + Number(film.rating).toFixed(1) + "</span>");
-  }
-  const ratingPill = ratings.join("");
+  // Single score — TMDB when available, else the library rating. Plex
+  // has no original score of its own, so there's no separate "Plex" pill.
+  const score = film.tmdbRating || film.rating;
+  const ratingPill = score
+    ? '<span class="rating-pill">★ ' + Number(score).toFixed(1) + "</span>"
+    : "";
   const imdbLink = film.imdbId
     ? ' · <a class="ext-link" href="https://www.imdb.com/title/' + film.imdbId + '" target="_blank" rel="noopener">IMDb ↗</a>'
     : "";
@@ -366,42 +386,40 @@ function renderListsMenu() {
   // and "Lottery" are their own always-visible tabs in the nav.
   const menu = $("nav-lists-menu");
   if (menu) {
-    menu.innerHTML = lists.length
-      ? lists
-          .map((l) => {
-            const isCurrent =
-              currentRoute.view === "list" && currentRoute.listId === l.id;
-            return (
-              '<a href="#/list/' +
-              encodeURIComponent(l.id) +
-              '"' +
-              (isCurrent ? ' class="current"' : "") +
-              "><span>" +
-              escapeHtml(l.name) +
-              "</span>" +
-              '<span class="count">' +
-              (l.filmGuids?.length || 0) +
-              "</span></a>"
-            );
-          })
-          .join("")
-      : '<div class="empty">No lists yet</div>';
-    // Create-list affordance at the bottom of the dropdown (empty list,
-    // no film attached).
-    menu.innerHTML +=
-      '<form class="new-list-form nav-new-list">' +
-      '<input type="text" placeholder="New list…" autocapitalize="none" autocomplete="off">' +
-      '<button type="submit">+</button>' +
-      "</form>";
+    // "All films" on top, then each list, then a New-list button that
+    // opens the create modal.
+    const allCurrent = currentRoute.view === "home" ? ' class="current"' : "";
+    const listsHtml = lists
+      .map((l) => {
+        const isCurrent =
+          currentRoute.view === "list" && currentRoute.listId === l.id;
+        return (
+          '<a href="#/list/' +
+          encodeURIComponent(l.id) +
+          '"' +
+          (isCurrent ? ' class="current"' : "") +
+          "><span>" +
+          escapeHtml(l.name) +
+          '</span><span class="count">' +
+          (l.filmGuids?.length || 0) +
+          "</span></a>"
+        );
+      })
+      .join("");
+    menu.innerHTML =
+      '<a href="#/"' +
+      allCurrent +
+      '><span>All films</span><span class="count">' +
+      allFilms.length +
+      "</span></a>" +
+      listsHtml +
+      '<button type="button" class="new-list-btn" id="open-list-modal">＋ New list</button>';
   }
-  // Drive the active-tab highlight from the current route.
-  const navAll = $("nav-all");
+  // Pick film defaults to the first list — never "all" (busts the wheel's
+  // 60-film limit). Falls back to all only when there are no lists.
   const navLottery = $("nav-lottery");
   const navLists = $("nav-lists");
-  if (navAll) navAll.classList.toggle("active", currentRoute.view === "home");
   if (navLottery) {
-    // Pick film defaults to the first list — never "all" (which busts
-    // the wheel's 60-film limit). Falls back to all if no lists exist.
     const firstList = lists[0];
     navLottery.href = firstList
       ? "#/wheel/" + encodeURIComponent(firstList.id) + "/spin"
@@ -445,8 +463,17 @@ function applyRoute() {
     .forEach((d) => d.removeAttribute("open"));
   renderHeaderForRoute();
   const view = currentRoute.view;
-  $("search-wrap").hidden = view !== "home" && view !== "list";
-  $("films").hidden = view !== "home" && view !== "list" || allFilms.length === 0;
+  const isHome = view === "home";
+  const isList = view === "list";
+  // Search only browses the full library; a list uses the "Pick from
+  // this list" bar instead.
+  $("search-wrap").hidden = !isHome;
+  $("list-bar").hidden = !isList;
+  if (isList) {
+    $("search").value = "";
+    renderListBar();
+  }
+  $("films").hidden = (!isHome && !isList) || allFilms.length === 0;
   $("film-detail").hidden = view !== "film";
   $("wheel-view").hidden = view !== "wheel";
   $("status").hidden = true;
@@ -747,11 +774,80 @@ $("nav-lists").addEventListener("submit", onSubmit);
 // land inside the list-menu (the per-row + dropdown) are
 // handled by their own controls and shouldn't navigate.
 $("films").addEventListener("click", (e) => {
+  const rm = e.target.closest(".row-remove");
+  if (rm) {
+    e.preventDefault();
+    removeRowFromList(rm);
+    return;
+  }
   if (e.target.closest(".list-menu")) return;
   const row = e.target.closest("li.film");
   if (!row) return;
   const guid = row.dataset.guid;
   if (guid) location.hash = "#/film/" + encodeURIComponent(guid);
+});
+
+async function removeRowFromList(btn) {
+  const guid = btn.dataset.removeGuid;
+  const listId = btn.dataset.removeList;
+  btn.disabled = true;
+  try {
+    await removeFromList(listId, guid);
+    await loadListsData();
+    renderListBar(); // the count in the bar changes
+    applyFilter($("search").value); // the row drops out of the list
+  } catch (err) {
+    alert("Couldn't remove from list: " + err.message);
+    btn.disabled = false;
+  }
+}
+
+// ── New-list modal ──────────────────────────────────────────────────
+function openListModal() {
+  const modal = $("list-modal");
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  const input = $("list-modal-input");
+  input.value = "";
+  setTimeout(() => input.focus(), 50);
+}
+function closeListModal() {
+  $("list-modal").hidden = true;
+  document.body.classList.remove("modal-open");
+}
+// The New-list button is re-rendered inside the Lists dropdown, so
+// delegate from the stable nav-lists element.
+$("nav-lists").addEventListener("click", (e) => {
+  if (e.target.closest("#open-list-modal")) {
+    e.preventDefault();
+    openListModal();
+  }
+});
+$("list-modal").addEventListener("click", (e) => {
+  if (e.target.matches("[data-close]")) closeListModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("list-modal").hidden) closeListModal();
+});
+$("list-modal-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("list-modal-input").value.trim();
+  if (!name) return;
+  const btn = $("list-modal-form").querySelector(".primary");
+  btn.disabled = true;
+  try {
+    await createList(name);
+    await loadListsData();
+    renderListsMenu();
+    if (currentRoute.view === "wheel") renderWheelView();
+    else if (currentRoute.view === "film") renderFilmDetail();
+    else applyFilter($("search").value);
+    closeListModal();
+  } catch (err) {
+    alert("Couldn't create list: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // The detail view also has list checkboxes + a new-list form;
