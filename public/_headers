@@ -5,17 +5,14 @@
 # imported a symbol the freshly-deployed lists.js no longer
 # exported, leaving the page silently empty.
 #
-# The SPA itself now lives under /a9rs8aristnarosin/; bare /
-# is a blank page served by the Worker (cache-control set there).
+# The SPA now lives at the root path (opened up 2026-07-02); the
+# Worker serves index.html at "/" with the write-key injected.
 
-/a9rs8aristnarosin/*.js
+/*.js
   Cache-Control: public, max-age=0, must-revalidate
 
-/a9rs8aristnarosin/*.css
+/*.css
   Cache-Control: public, max-age=0, must-revalidate
 
-/a9rs8aristnarosin/index.html
-  Cache-Control: public, max-age=0, must-revalidate
-
-/a9rs8aristnarosin/
+/index.html
   Cache-Control: public, max-age=0, must-revalidate

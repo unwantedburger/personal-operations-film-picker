@@ -1,20 +1,26 @@
 // Picker Worker — same-origin API for lists / tags / enrichment +
-// gated SPA serving.
+// open SPA serving.
 //
 // The Worker handles every request (`run_worker_first = true` in
 // wrangler.toml). Static assets live under public/ and are fetched
-// via `env.ASSETS.fetch()` from inside this script. The app itself
-// is parked at an obscure path (APP_PATH) so the bare workers.dev
-// URL leaks nothing about the picker existing.
+// via `env.ASSETS.fetch()` from inside this script.
+//
+// OPEN (2026-07-02): the picker used to hide behind an obscure path
+// so the bare workers.dev URL leaked nothing. Staale wants it open —
+// anyone with the URL can pick films — so the SPA now serves at "/".
+// The write-key (env.SECRET) is still injected into the page so the
+// bare write API isn't reachable by blind scanners that never load
+// the page; but because every visitor gets the key, the URL alone
+// grants full access. To go fully keyless, drop requireSecret().
 //
 // KV namespace bound as PICKER (separate from the VPN manager's
 // STATE so the two services don't share state across deployments).
 //
 // Routes:
-//   GET    /                                        blank page
-//   GET    /a9rs8aristnarosin/                      SPA shell (SECRET
+//   GET    /                                        SPA shell (SECRET
 //                                                   injected into HTML)
-//   GET    /a9rs8aristnarosin/<file>                static asset
+//   GET    /<file>.js|.css|…                        static asset
+//   GET    /a9rs8aristnarosin[/…]                   301 → / (old path)
 //   GET    /lists.json                              public
 //   PUT    /lists/<id>?secret=…&name=…              create/rename
 //   DELETE /lists/<id>?secret=…                     delete
@@ -30,17 +36,13 @@
 // per film via TMDB search-by-title. When absent, the enrichment
 // job no-ops and /enriched.json returns {}.
 
-const APP_PATH = "/a9rs8aristnarosin";
+// Legacy obscure path — kept only so old bookmarks 301 to root.
+const OLD_APP_PATH = "/a9rs8aristnarosin";
 
 const LISTS_KEY = "library:lists";
 const ENRICH_KEY = "library:enriched";
 const ENRICH_META_KEY = "library:enriched:meta";
 const FILMS_URL = "https://vpn-manager.staalenataas.workers.dev/films.json";
-
-// Minimal, intentionally uninformative root page. Anyone hitting the
-// bare workers.dev URL sees nothing — no logo, no link, no clue that
-// a picker lives behind a longer path.
-const BLANK_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title></title></head><body></body></html>`;
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
@@ -66,15 +68,6 @@ async function saveLists(env, lists) {
   await env.PICKER.put(LISTS_KEY, JSON.stringify(lists));
 }
 
-const blankHtml = (status = 200) =>
-  new Response(BLANK_PAGE, {
-    status,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-
 // Fetch a file out of the assets binding using a synthesised URL so
 // the path we ask for is the path we get, regardless of the
 // inbound request.
@@ -88,11 +81,7 @@ async function fetchAsset(request, env, pathname) {
 // Serve the SPA shell, with SECRET injected so the page can call
 // /lists/* without prompting the user for a key.
 async function serveAppShell(request, env) {
-  const assetResp = await fetchAsset(
-    request,
-    env,
-    APP_PATH + "/index.html",
-  );
+  const assetResp = await fetchAsset(request, env, "/index.html");
   if (!assetResp.ok) return assetResp;
   let body = await assetResp.text();
   // Sentinel must match the placeholder in index.html exactly.
@@ -117,30 +106,25 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // ─── SPA gating ───────────────────────────────────────────
+    // ─── SPA serving (open) ────────────────────────────────────
     //
-    // Bare URL: empty page. The picker only exists at APP_PATH.
-
-    if (request.method === "GET" && url.pathname === "/") {
-      return blankHtml();
-    }
-
+    // Old obscure path → 301 to root, so any existing bookmark of
+    // /a9rs8aristnarosin still lands on the app.
     if (
       request.method === "GET" &&
-      (url.pathname === APP_PATH || url.pathname === APP_PATH + "/")
+      (url.pathname === OLD_APP_PATH ||
+        url.pathname.startsWith(OLD_APP_PATH + "/"))
     ) {
-      return serveAppShell(request, env);
+      return Response.redirect(url.origin + "/", 301);
     }
 
-    // Static assets under APP_PATH (incl. /index.html if asked
-    // directly) pass through to the ASSETS binding unmodified.
-    // index.html still routes through serveAppShell so SECRET gets
-    // injected even when the path is spelled out.
-    if (request.method === "GET" && url.pathname.startsWith(APP_PATH + "/")) {
-      if (url.pathname === APP_PATH + "/index.html") {
-        return serveAppShell(request, env);
-      }
-      return env.ASSETS.fetch(request);
+    // Root and /index.html → the SPA shell with SECRET injected so
+    // the page can call the write API without prompting.
+    if (
+      request.method === "GET" &&
+      (url.pathname === "/" || url.pathname === "/index.html")
+    ) {
+      return serveAppShell(request, env);
     }
 
     // GET /lists.json — public read.
@@ -236,11 +220,13 @@ export default {
       return json({ ok: true, report });
     }
 
-    // Unmatched paths get the blank page too — no API surface
-    // hinted at, no JSON-error breadcrumb pointing scanners at a
-    // real handler. (The API routes above still respond normally;
-    // this only catches unrecognised paths.)
-    return blankHtml(404);
+    // Any other GET → static asset (app.js, lists.js, wheel.js,
+    // _headers, …). The ASSETS binding 404s cleanly for misses.
+    if (request.method === "GET") {
+      return env.ASSETS.fetch(request);
+    }
+
+    return json({ error: "not found" }, 404);
   },
 
   // Cron handler — runs on the schedule(s) declared in wrangler.toml.

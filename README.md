@@ -16,8 +16,13 @@ renders it as a searchable list.
   as the VPN manager; the picker Worker injects it into the SPA
   shell so no prompt or `localStorage` is needed. The list itself
   is public-read; only the refresh requires the key.
-- The SPA lives at `/a9rs8aristnarosin/`. The bare workers.dev URL
-  returns a blank page so the picker isn't trivially discoverable.
+- **Open (2026-07-02):** the SPA serves at the root path — anyone
+  with the workers.dev URL can browse and pick films. It used to
+  hide behind an obscure path (`/a9rs8aristnarosin/`, now 301'd to
+  `/`); that gating was dropped on Staale's call. The write-key is
+  still injected into the page (so blind scanners hitting the raw
+  API without loading the page can't write), but every visitor
+  gets it — the URL alone grants full access.
 
 ## What's not here (yet)
 
@@ -42,10 +47,24 @@ swap in Vite + vanilla TS or a small framework. Migration path is
 
 ## Deploy
 
-Cloudflare Pages, connected to this GitHub repo, auto-deploys on
-push to `master`. The Worker (`personal-operations-macbook-vpn-manager`)
-sets `access-control-allow-origin: *` on `/films.json`, so the page
-can run on any origin.
+This is a **Cloudflare Worker** (not Pages) — `wrangler.toml` binds
+static assets, a KV namespace, a service binding to the VPN-manager
+Worker, and a 12h enrichment cron. Deploy with:
+
+```bash
+npx wrangler deploy      # needs Cloudflare auth (see below)
+```
+
+Auth: wrangler reads a `CLOUDFLARE_API_TOKEN` from `.env.local`
+(git-ignored) or the environment. The token needs
+`Account · Workers Scripts · Edit`. The headless VM has no persisted
+OAuth, so deploys run either from a machine with `wrangler login`
+(Staale's Mac) or with that token dropped in `.env.local`.
+
+Live at `https://personal-operations-film-picker.staalenataas.workers.dev`.
+The data Worker (`personal-operations-macbook-vpn-manager`) sets
+`access-control-allow-origin: *` on `/films.json`, so the page can
+run on any origin.
 
 For local dev:
 
