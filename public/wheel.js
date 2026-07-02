@@ -66,7 +66,7 @@ export function renderWheel(container, films, onWin) {
       const colour = i % 2 === 0 ? "var(--wheel-a)" : "var(--wheel-b)";
       const wedgeFill =
         '<path d="' + slicePath(i) +
-        '" fill="' + colour + '" stroke="var(--bg)" stroke-width="0.5"/>';
+        '" fill="' + colour + '" stroke="rgba(242,234,217,0.35)" stroke-width="0.35"/>';
 
       let posterTag = "";
       if (showPosters && f.posterUrl) {
@@ -129,8 +129,9 @@ export function renderWheel(container, films, onWin) {
     '<g class="wheel-rotor" id="wheel-rotor">' +
     sliceGroups +
     "</g>" +
-    // pointer at top — separate from rotor so it stays still
-    '<polygon class="wheel-pointer" points="0,-108 -8,-94 8,-94" fill="var(--accent)"/>' +
+    // pointer at top — separate from rotor so it stays still. Apex
+    // points DOWN into the wheel (tip at the rim) to mark the slice.
+    '<polygon class="wheel-pointer" points="0,-94 -8,-110 8,-110" fill="var(--accent)"/>' +
     '<circle class="wheel-hub" cx="0" cy="0" r="7" fill="var(--bg)" stroke="var(--accent)" stroke-width="1"/>' +
     "</svg>" +
     '<button class="spin-btn" id="spin-btn"><span>Spin</span></button>' +

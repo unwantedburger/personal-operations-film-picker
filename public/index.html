@@ -582,6 +582,14 @@
       background: var(--accent);
       color: #0F0D0B;
     }
+    /* "Spinning from <list>" banner — makes the wheel's scope explicit. */
+    .wheel-scope {
+      text-align: center;
+      color: var(--fg-soft);
+      font-size: 0.9rem;
+      margin: -0.5rem 0 0.25rem;
+    }
+    .wheel-scope strong { color: var(--accent); font-weight: 600; }
     .wheel-box {
       display: flex;
       flex-direction: column;
@@ -883,7 +891,7 @@
         <summary class="topnav-item">Lists ▾</summary>
         <div class="lists-menu-dropdown topnav-lists-menu" id="nav-lists-menu"></div>
       </details>
-      <a id="nav-lottery" href="#/wheel/all/spin" class="topnav-item">Lottery</a>
+      <a id="nav-lottery" href="#/wheel/all/spin" class="topnav-item">Pick film</a>
     </nav>
 
     <div class="search-wrap" id="search-wrap">

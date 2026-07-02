@@ -386,14 +386,28 @@ function renderListsMenu() {
           })
           .join("")
       : '<div class="empty">No lists yet</div>';
+    // Create-list affordance at the bottom of the dropdown (empty list,
+    // no film attached).
+    menu.innerHTML +=
+      '<form class="new-list-form nav-new-list">' +
+      '<input type="text" placeholder="New list…" autocapitalize="none" autocomplete="off">' +
+      '<button type="submit">+</button>' +
+      "</form>";
   }
   // Drive the active-tab highlight from the current route.
   const navAll = $("nav-all");
   const navLottery = $("nav-lottery");
   const navLists = $("nav-lists");
   if (navAll) navAll.classList.toggle("active", currentRoute.view === "home");
-  if (navLottery)
+  if (navLottery) {
+    // Pick film defaults to the first list — never "all" (which busts
+    // the wheel's 60-film limit). Falls back to all if no lists exist.
+    const firstList = lists[0];
+    navLottery.href = firstList
+      ? "#/wheel/" + encodeURIComponent(firstList.id) + "/spin"
+      : "#/wheel/all/spin";
     navLottery.classList.toggle("active", currentRoute.view === "wheel");
+  }
   if (navLists)
     navLists.classList.toggle("active", currentRoute.view === "list");
 }
@@ -501,6 +515,17 @@ function renderWheelView() {
     '">Grid</button></a>' +
     "</div>";
 
+  const scopeName =
+    listId === "all" ? "All films" : allLists[listId]?.name || "Unknown list";
+  const scopeBanner =
+    '<div class="wheel-scope">Spinning from <strong>' +
+    escapeHtml(scopeName) +
+    "</strong> · " +
+    scopeFilms.length +
+    " film" +
+    (scopeFilms.length === 1 ? "" : "s") +
+    "</div>";
+
   container.innerHTML =
     '<div class="wheel-controls">' +
     '<div class="chips">' +
@@ -508,6 +533,7 @@ function renderWheelView() {
     "</div>" +
     modeToggle +
     "</div>" +
+    scopeBanner +
     '<div id="wheel-stage"></div>';
 
   const stage = container.querySelector("#wheel-stage");
@@ -680,11 +706,14 @@ async function onSubmit(ev) {
   form.querySelector("button").disabled = true;
   try {
     const newId = await createList(name);
-    await addToList(newId, filmGuid);
+    // Standalone create (from the nav Lists menu) has no film to attach.
+    if (filmGuid) await addToList(newId, filmGuid);
     await loadListsData();
     renderListsMenu();
     if (currentRoute.view === "film") {
       renderFilmDetail();  // detail view needs the new list visible
+    } else if (currentRoute.view === "wheel") {
+      renderWheelView();   // wheel chips + Pick-film default may change
     } else {
       applyFilter($("search").value);  // re-render all rows so dropdowns show the new list
     }
@@ -711,6 +740,8 @@ $("back").addEventListener("click", (e) => {
 });
 $("films").addEventListener("change", onChange);
 $("films").addEventListener("submit", onSubmit);
+// The nav Lists dropdown's "New list" form lives outside #films.
+$("nav-lists").addEventListener("submit", onSubmit);
 
 // Tapping a row body navigates to the film detail. Clicks that
 // land inside the list-menu (the per-row + dropdown) are
