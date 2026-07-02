@@ -183,13 +183,40 @@
       text-decoration: underline;
       padding: 0;
     }
+    /* Non-sticky — scrolls away with the content (the fixed bar was
+       covering rows). A floating "↑" button handles getting back up. */
     .search-wrap {
-      position: sticky;
-      top: 0;
       background: var(--bg);
       padding: 0.5rem 0 1rem;
-      z-index: 1;
     }
+    .browse-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .view-toggle {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 3px;
+      background: var(--surface);
+    }
+    .view-toggle button {
+      padding: 0.3rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s ease, color .15s ease;
+    }
+    .view-toggle button.active { background: var(--accent); color: #0F0D0B; }
     input[type="search"] {
       width: 100%;
       padding: 0.95rem 1.1rem;
@@ -990,6 +1017,51 @@
     }
     .app-btn.primary { background: var(--accent); color: #0F0D0B; }
     .app-btn.secondary { background: transparent; color: var(--fg-soft); border-color: var(--border); }
+    /* Grid mode for the main films view (poster + title + score) */
+    ul.films.as-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.7rem;
+    }
+    .film-grid-card {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.6rem;
+      text-decoration: none;
+      color: var(--fg);
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .film-grid-card:hover { border-color: rgba(244,161,0,0.35); background: var(--surface-2); }
+    .film-grid-poster {
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      object-fit: cover;
+      border-radius: 8px;
+      background: var(--surface-2);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .film-grid-poster.placeholder {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-weight: 700; font-size: 1.6rem;
+      font-family: "Fraunces", serif;
+    }
+    .film-grid-title {
+      font-family: "Fraunces", serif;
+      font-variation-settings: "opsz" 40;
+      font-weight: 600;
+      font-size: 0.92rem;
+      line-height: 1.2;
+    }
+    .film-grid-score {
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      margin-top: 0.3rem;
+    }
+    .film-grid-score::before { content: "★"; margin-right: 0.15rem; opacity: 0.7; font-size: 0.85em; }
     /* Floating scroll-to-top */
     .scroll-top {
       position: fixed;
@@ -1042,7 +1114,13 @@
 
     <div class="search-wrap" id="search-wrap">
       <input id="search" type="search" placeholder="Search title, director, genre…" autocomplete="off" spellcheck="false">
-      <div class="count" id="count"></div>
+      <div class="browse-row">
+        <div class="count" id="count"></div>
+        <div class="view-toggle" id="view-toggle" aria-label="View mode">
+          <button type="button" data-mode="list">List</button>
+          <button type="button" data-mode="grid">Grid</button>
+        </div>
+      </div>
     </div>
 
     <!-- List view replaces the search field with this bar: list name +

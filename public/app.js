@@ -46,6 +46,11 @@ let allLists = {};        // { id: {id, name, filmGuids} }
 let filmListsMap = new Map(); // guid → Set<listId>
 let enriched = {};        // guid → { posterUrl, tmdbRating, ... } from /enriched.json
 let currentRoute = { view: "home" };   // { view: 'home' | 'list' | 'film' | 'wheel', ... }
+// Home-view layout: "list" (default) or "grid". Persisted locally.
+let viewMode = "list";
+try {
+  if (localStorage.getItem("pickerViewMode") === "grid") viewMode = "grid";
+} catch (e) { /* private mode / storage disabled */ }
 
 function shapeFilm(v) {
   return {
@@ -168,6 +173,65 @@ function rowAction(guid) {
   return listDropdown(guid);
 }
 
+function ratingStrOf(f) {
+  return f.tmdbRating
+    ? Number(f.tmdbRating).toFixed(1)
+    : f.rating
+    ? Number(f.rating).toFixed(1)
+    : "";
+}
+
+function listRow(f) {
+  const sub = [f.year, f.directors[0], fmtDuration(f.duration), f.contentRating]
+    .filter(Boolean)
+    .join(" · ");
+  const watchedClass = f.viewCount > 0 ? "dot watched" : "dot";
+  const thumb = f.posterUrl
+    ? '<img class="film-thumb" src="' + posterSize(f.posterUrl, "w92") + '" alt="" loading="lazy">'
+    : '<div class="film-thumb placeholder">' + escapeHtml(f.title.slice(0, 1)) + "</div>";
+  return (
+    '<li class="film" data-guid="' +
+    escapeHtml(f.guid) +
+    '">' +
+    '<span class="' +
+    watchedClass +
+    '" title="' +
+    (f.viewCount > 0 ? "watched" : "unwatched") +
+    '"></span>' +
+    thumb +
+    '<div class="film-main"><div class="title">' +
+    escapeHtml(f.title) +
+    '</div><div class="sub">' +
+    escapeHtml(sub) +
+    listBadge(f.guid) +
+    "</div></div>" +
+    '<div class="rating">' +
+    ratingStrOf(f) +
+    "</div>" +
+    rowAction(f.guid) +
+    "</li>"
+  );
+}
+
+// Grid card: poster + title + score, no add button (per #5).
+function gridCard(f) {
+  const score = ratingStrOf(f);
+  const poster = f.posterUrl
+    ? '<img class="film-grid-poster" src="' + posterSize(f.posterUrl, "w342") + '" alt="" loading="lazy">'
+    : '<div class="film-grid-poster placeholder">' + escapeHtml(f.title.slice(0, 1)) + "</div>";
+  return (
+    '<li class="film-grid-cell"><a class="film-grid-card" href="#/film/' +
+    encodeURIComponent(f.guid) +
+    '">' +
+    poster +
+    '<div class="film-grid-title">' +
+    escapeHtml(f.title) +
+    "</div>" +
+    (score ? '<div class="film-grid-score">' + score + "</div>" : "") +
+    "</a></li>"
+  );
+}
+
 function render(films) {
   const ul = $("films");
   ul.hidden = films.length === 0;
@@ -177,52 +241,10 @@ function render(films) {
     ul.innerHTML = "";
     return;
   }
-  ul.innerHTML = films
-    .map((f) => {
-      const sub = [
-        f.year,
-        f.directors[0],
-        fmtDuration(f.duration),
-        f.contentRating,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      const ratingStr = f.tmdbRating
-        ? Number(f.tmdbRating).toFixed(1)
-        : f.rating
-        ? Number(f.rating).toFixed(1)
-        : "";
-      const watchedClass = f.viewCount > 0 ? "dot watched" : "dot";
-      const thumb = f.posterUrl
-        ? '<img class="film-thumb" src="' + posterSize(f.posterUrl, "w92") + '" alt="" loading="lazy">'
-        : '<div class="film-thumb placeholder">' + escapeHtml(f.title.slice(0, 1)) + "</div>";
-      return (
-        '<li class="film" data-guid="' +
-        escapeHtml(f.guid) +
-        '">' +
-        '<span class="' +
-        watchedClass +
-        '" title="' +
-        (f.viewCount > 0 ? "watched" : "unwatched") +
-        '"></span>' +
-        thumb +
-        '<div class="film-main">' +
-        '<div class="title">' +
-        escapeHtml(f.title) +
-        "</div>" +
-        '<div class="sub">' +
-        escapeHtml(sub) +
-        listBadge(f.guid) +
-        "</div>" +
-        "</div>" +
-        '<div class="rating">' +
-        ratingStr +
-        "</div>" +
-        rowAction(f.guid) +
-        "</li>"
-      );
-    })
-    .join("");
+  // Grid layout only on the full-library home view.
+  const asGrid = viewMode === "grid" && currentRoute.view === "home";
+  ul.classList.toggle("as-grid", asGrid);
+  ul.innerHTML = films.map((f) => (asGrid ? gridCard(f) : listRow(f))).join("");
 }
 
 function scopedFilms() {
@@ -854,6 +876,37 @@ $("list-modal-form").addEventListener("submit", async (e) => {
 // reuse the same handlers.
 $("film-detail").addEventListener("change", onChange);
 $("film-detail").addEventListener("submit", onSubmit);
+
+// List / grid view-mode toggle (home view)
+function syncViewToggle() {
+  document.querySelectorAll("#view-toggle button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.mode === viewMode);
+  });
+}
+$("view-toggle").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mode]");
+  if (!b) return;
+  viewMode = b.dataset.mode === "grid" ? "grid" : "list";
+  try {
+    localStorage.setItem("pickerViewMode", viewMode);
+  } catch (err) { /* storage disabled */ }
+  syncViewToggle();
+  applyFilter($("search").value);
+});
+syncViewToggle();
+
+// Floating scroll-to-top — appears once you're well down the page.
+const scrollTopBtn = $("scroll-top");
+window.addEventListener(
+  "scroll",
+  () => {
+    scrollTopBtn.hidden = window.scrollY < 500;
+  },
+  { passive: true }
+);
+scrollTopBtn.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
 
 window.addEventListener("hashchange", applyRoute);
 
